@@ -6,18 +6,25 @@ import Data.Composition
 import Data.List.Extra
 import Data.Text qualified as T
 import Data.Text.Lazy qualified as TL
+import Data.Tuple.Extra
 import Data.Word
 import Graphics.Gloss
+import Graphics.Gloss.Interface.Environment
 import Graphics.Gloss.Interface.IO.Interact
 import Lifx.Lan
 import Network.Socket
-import Optics
+import Optics hiding (both)
 import Optics.State.Operators
 import Options.Generic
 import Text.Pretty.Simple
 
 data Opts = Opts
-    { ip :: Ip
+    { -- | local address of target light
+      ip :: Ip
+    , -- | 0 to 1
+      width :: Float
+    , -- | 0 to 1
+      height :: Float
     }
     deriving (Generic, Show, ParseRecord)
 
@@ -36,14 +43,25 @@ data AppState = AppState
 main :: IO ()
 main = do
     Opts{..} <- getRecord "LIFX"
+    (screenWidth, screenHeight) <- both fromIntegral <$> getScreenSize
+    let windowWidth = screenWidth * width
+        windowHeight = screenHeight * height
     (e, s0) <- runLifx $ ((,) .: (,)) <$> getSocket <*> getSource <*> getCounter
     interactM
         (\x (a, (_e, s)) -> f e <$> runReaderT (runStateT (unLifxT (runStateT x a)) s) e)
-        (InWindow "LIFX" (windowWidth, windowHeight) (windowX0, windowY0))
+        ( InWindow
+            "LIFX"
+            ( round windowWidth
+            , round windowHeight
+            )
+            ( round $ (screenWidth - windowWidth) / 2
+            , round $ (screenHeight - windowHeight) / 2
+            )
+        )
         white
         (AppState colour0 Nothing, (e, s0))
         (pure . render . fst)
-        (update $ unIp ip)
+        (update windowWidth $ unIp ip)
         mempty
   where
     f a ((b, c), d) = (b, (c, (a, d)))
@@ -51,8 +69,8 @@ main = do
 render :: AppState -> Picture
 render s = translate (-220) 80 . scale 0.2 0.2 . text' 150 . TL.toStrict $ pShowNoColor s
 
-update :: HostAddress -> Event -> StateT AppState Lifx ()
-update addr = \case
+update :: Float -> HostAddress -> Event -> StateT AppState Lifx ()
+update windowWidth addr = \case
     EventKey (MouseButton LeftButton) Up _ _ -> sendMessage addr $ SetPower True
     EventKey (MouseButton RightButton) Up _ _ -> sendMessage addr $ SetPower False
     EventKey (Char 'h') Down _ _ -> #attrKey .= Just H
@@ -74,15 +92,6 @@ update addr = \case
     _ -> pure ()
 
 {- Config -}
-
-windowWidth :: Num a => a
-windowWidth = 700
-windowHeight :: Int
-windowHeight = 400
-windowX0 :: Int
-windowX0 = 10
-windowY0 :: Int
-windowY0 = 10
 
 colour0 :: HSBK
 colour0 = HSBK 0 0 30_000 2_500
