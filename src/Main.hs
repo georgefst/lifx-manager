@@ -3,18 +3,23 @@ module Main (main) where
 import Control.Monad.Reader
 import Control.Monad.State
 import Data.Composition
-import Data.Text (Text)
+import Data.List.Extra
 import Data.Text qualified as T
 import Data.Text.Lazy qualified as TL
 import Data.Word
-import GHC.Generics (Generic)
 import Graphics.Gloss
 import Graphics.Gloss.Interface.IO.Interact
 import Lifx.Lan
 import Network.Socket
 import Optics
 import Optics.State.Operators
+import Options.Generic
 import Text.Pretty.Simple
+
+data Opts = Opts
+    { ip :: Ip
+    }
+    deriving (Generic, Show, ParseRecord)
 
 data AttrKey
     = H
@@ -30,6 +35,7 @@ data AppState = AppState
 
 main :: IO ()
 main = do
+    Opts{..} <- getRecord "LIFX"
     (e, s0) <- runLifx $ ((,) .: (,)) <$> getSocket <*> getSource <*> getCounter
     interactM
         (\x (a, (_e, s)) -> f e <$> runReaderT (runStateT (unLifxT (runStateT x a)) s) e)
@@ -37,7 +43,7 @@ main = do
         white
         (AppState colour0 Nothing, (e, s0))
         (pure . render . fst)
-        update
+        (update $ unIp ip)
         mempty
   where
     f a ((b, c), d) = (b, (c, (a, d)))
@@ -45,10 +51,10 @@ main = do
 render :: AppState -> Picture
 render s = translate (-220) 80 . scale 0.2 0.2 . text' 150 . TL.toStrict $ pShowNoColor s
 
-update :: Event -> StateT AppState Lifx ()
-update = \case
-    EventKey (MouseButton LeftButton) Up _ _ -> sendMessage bedroomLightAddr $ SetPower True
-    EventKey (MouseButton RightButton) Up _ _ -> sendMessage bedroomLightAddr $ SetPower False
+update :: HostAddress -> Event -> StateT AppState Lifx ()
+update addr = \case
+    EventKey (MouseButton LeftButton) Up _ _ -> sendMessage addr $ SetPower True
+    EventKey (MouseButton RightButton) Up _ _ -> sendMessage addr $ SetPower False
     EventKey (Char 'h') Down _ _ -> #attrKey .= Just H
     EventKey (Char 's') Down _ _ -> #attrKey .= Just S
     EventKey (Char 'b') Down _ _ -> #attrKey .= Just B
@@ -64,7 +70,7 @@ update = \case
       where
         updateLight l m = do
             #hsbk % l .= round ((x + windowWidth / 2) * fromIntegral (maxBound @Word16) / windowWidth / m)
-            sendMessage bedroomLightAddr . flip SetColor (Duration 0) =<< gets (view #hsbk)
+            sendMessage addr . flip SetColor (Duration 0) =<< gets (view #hsbk)
     _ -> pure ()
 
 {- Config -}
@@ -80,9 +86,6 @@ windowY0 = 10
 
 colour0 :: HSBK
 colour0 = HSBK 0 0 30_000 2_500
-
-bedroomLightAddr :: HostAddress
-bedroomLightAddr = tupleToHostAddress (192, 168, 1, 190)
 
 {- Util -}
 
@@ -108,3 +111,15 @@ interactM ::
     (Controller -> IO ()) ->
     IO ()
 interactM trans d c s v u = interactIO d c s v (fmap snd .: (trans . u))
+
+newtype Ip = Ip {unIp :: HostAddress}
+    deriving stock (Generic)
+    deriving anyclass (ParseRecord, ParseField, ParseFields)
+instance Show Ip where
+    show (Ip x) = intercalate "." $ map show [a, b, c, d]
+      where
+        (a, b, c, d) = hostAddressToTuple x
+instance Read Ip where
+    readsPrec _ s = case map read $ splitOn "." s of
+        [a, b, c, d] -> pure . (,"") . Ip $ tupleToHostAddress (a, b, c, d)
+        _ -> []
