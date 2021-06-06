@@ -1,9 +1,14 @@
+{-# LANGUAGE MultiWayIf #-}
+
 module Main (main) where
 
 import Control.Monad.Reader
 import Control.Monad.State
+import Data.Colour.CIE
+import Data.Colour.CIE.Illuminant qualified as I
 import Data.Colour.RGBSpace
 import Data.Colour.RGBSpace.HSV (hsv)
+import Data.Colour.SRGB
 import Data.Composition
 import Data.List.Extra
 import Data.Tuple.Extra
@@ -49,6 +54,37 @@ cdUpper = \case
     K -> 9000
     _ -> maxBound
 
+-- | First argument must be in range [0, 1].
+cdColor :: Float -> HSBK -> ColourDimension -> Color
+cdColor x hsbk = \case
+    -- K -> rgbToGloss $ toRGBUsingSpace   (linearRGBSpace  $ mkRGBGamut _ d65)
+    -- K -> rgbToGloss $ toSRGB $ chromaColour (mkChromaticity x x) 0.5
+    K ->
+        rgbToGloss $
+            toSRGB
+                if
+                        | x < 0.05 -> chromaColour I.a 0
+                        | x < 0.1 -> chromaColour I.a 1
+                        | x < 0.15 -> chromaColour I.b 0
+                        | x < 0.2 -> chromaColour I.b 1
+                        | x < 0.25 -> chromaColour I.c 0
+                        | x < 0.3 -> chromaColour I.c 1
+                        | x < 0.35 -> chromaColour I.d50 0
+                        | x < 0.4 -> chromaColour I.d50 1
+                        | x < 0.45 -> chromaColour I.d55 0
+                        | x < 0.5 -> chromaColour I.d55 1
+                        | x < 0.55 -> chromaColour I.d65 0
+                        | x < 0.6 -> chromaColour I.d65 1
+                        | x < 0.65 -> chromaColour I.d75 0
+                        | x < 0.7 -> chromaColour I.d75 1
+                        | x < 0.75 -> chromaColour I.f1 0
+                        | x < 0.8 -> chromaColour I.f1 1
+                        | x < 0.85 -> chromaColour I.f4 0
+                        | x < 0.9 -> chromaColour I.f4 1
+                        | x < 0.95 -> chromaColour I.f12 0
+                        | otherwise -> chromaColour I.f12 1
+    d -> rgbToGloss . hsbkToRgb $ hsbk & cdLens d .~ round (x * maxWord16)
+
 data AppState = AppState
     { hsbk :: HSBK
     , -- | Which axis, if any, we are currently moving.
@@ -93,7 +129,7 @@ render (fromIntegral -> columns) (w, h) AppState{..} =
                         [0 .. columns - 1] <&> \x ->
                             let x' = (x + 0.5) / columns -- x coordinate of the bar's centre, in the interval [0,1]
                              in rectangleSolid columnWidth rectHeight
-                                    & color (rgbToGloss . hsbkToRgb $ hsbk & cdLens d .~ round (x' * maxWord16))
+                                    & color (cdColor x' hsbk d)
                                     & translate (w * (x' - 0.5)) 0
                     , -- current value marker
                       rectangleSolid lineWidth rectHeight
