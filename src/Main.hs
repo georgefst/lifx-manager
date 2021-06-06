@@ -93,7 +93,7 @@ render (fromIntegral -> columns) (w, h) AppState{..} =
                         [0 .. columns - 1] <&> \x ->
                             let x' = (x + 0.5) / columns -- x coordinate of the bar's centre, in the interval [0,1]
                              in rectangleSolid columnWidth rectHeight
-                                    & color (hsbkToGloss $ hsbk & cdLens d .~ round (x' * maxWord16))
+                                    & color (rgbToGloss . hsbkToRgb $ hsbk & cdLens d .~ round (x' * maxWord16))
                                     & translate (w * (x' - 0.5)) 0
                     , -- current value marker
                       rectangleSolid lineWidth rectHeight
@@ -171,18 +171,21 @@ instance Read Ip where
         [a, b, c, d] -> pure . (,"") . Ip $ tupleToHostAddress (a, b, c, d)
         _ -> []
 
-hsbkToGloss :: HSBK -> Color
-hsbkToGloss HSBK{..} =
-    let RGB{..} =
-            hsv
-                (360 * fromIntegral hue / maxWord16)
-                (fromIntegral saturation / maxWord16)
-                (fromIntegral brightness / maxWord16)
-     in makeColor
-            channelRed
-            channelGreen
-            channelBlue
-            1
+rgbToGloss :: RGB Float -> Color
+rgbToGloss RGB{..} =
+    makeColor
+        channelRed
+        channelGreen
+        channelBlue
+        1
+
+-- | Note theat this ignores temperature.
+hsbkToRgb :: HSBK -> RGB Float
+hsbkToRgb HSBK{..} =
+    hsv
+        (360 * fromIntegral hue / maxWord16)
+        (fromIntegral saturation / maxWord16)
+        (fromIntegral brightness / maxWord16)
 
 maxWord16 :: Float
 maxWord16 = fromIntegral $ maxBound @Word16
