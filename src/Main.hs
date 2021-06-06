@@ -4,8 +4,6 @@ import Control.Monad.Reader
 import Control.Monad.State
 import Data.Composition
 import Data.List.Extra
-import Data.Text qualified as T
-import Data.Text.Lazy qualified as TL
 import Data.Tuple.Extra
 import Data.Word
 import Graphics.Gloss
@@ -16,7 +14,6 @@ import Network.Socket
 import Optics hiding (both)
 import Optics.State.Operators
 import Options.Generic
-import Text.Pretty.Simple
 
 data Opts = Opts
     { -- | local address of target light
@@ -28,15 +25,37 @@ data Opts = Opts
     }
     deriving (Generic, Show, ParseRecord)
 
-data AttrKey
+data ColourDimension
     = H
     | S
     | B
     | K
-    deriving (Show, Generic)
+    deriving (Show, Generic, Enum, Bounded)
+cdLens :: ColourDimension -> Lens' HSBK Word16
+cdLens = \case
+    H -> #hue
+    S -> #saturation
+    B -> #brightness
+    K -> #kelvin
+cdLower :: ColourDimension -> Word16
+cdLower = \case
+    K -> 1500
+    _ -> minBound
+cdUpper :: ColourDimension -> Word16
+cdUpper = \case
+    K -> 9000
+    _ -> maxBound
+cdCol :: ColourDimension -> Color
+cdCol = \case
+    H -> red
+    S -> green
+    B -> blue
+    K -> yellow
+
 data AppState = AppState
     { hsbk :: HSBK
-    , attrKey :: Maybe AttrKey
+    , -- | Which axis, if any, we are currently moving.
+      dimension :: Maybe ColourDimension
     }
     deriving (Show, Generic)
 
@@ -60,34 +79,55 @@ main = do
         )
         white
         (AppState colour0 Nothing, (e, s0))
-        (pure . render . fst)
+        (pure . render (windowWidth, windowHeight) . fst)
         (update windowWidth $ unIp ip)
         mempty
   where
     f a ((b, c), d) = (b, (c, (a, d)))
 
-render :: AppState -> Picture
-render s = translate (-220) 80 . scale 0.2 0.2 . text' 150 . TL.toStrict $ pShowNoColor s
+render :: (Float, Float) -> AppState -> Picture
+render (w, h) AppState{..} =
+    pictures $
+        zipWith
+            ( \d y ->
+                pictures
+                    [ -- background
+                      rectangleSolid w rectHeight
+                        & color (cdCol d)
+                    , -- current value marker
+                      rectangleSolid lineWidth rectHeight
+                        & translate (- w / 2) 0
+                        & translate
+                            ( w * fromIntegral (view (cdLens d) hsbk - cdLower d)
+                                / fromIntegral (cdUpper d - cdLower d)
+                            )
+                            0
+                    ]
+                    & translate 0 (rectHeight * y)
+            )
+            enumerate
+            [3 / 2, 1 / 2 ..]
+            <> map
+                (flip (translate 0) $ rectangleSolid w lineWidth)
+                (take 5 [rectHeight * 2, rectHeight ..])
+  where
+    lineWidth = min w h * lineWidthFactor
+    rectHeight = h / 4
 
 update :: Float -> HostAddress -> Event -> StateT AppState Lifx ()
-update windowWidth addr = \case
+update w addr = \case
     EventKey (MouseButton LeftButton) Up _ _ -> sendMessage addr $ SetPower True
     EventKey (MouseButton RightButton) Up _ _ -> sendMessage addr $ SetPower False
-    EventKey (Char 'h') Down _ _ -> #attrKey .= Just H
-    EventKey (Char 's') Down _ _ -> #attrKey .= Just S
-    EventKey (Char 'b') Down _ _ -> #attrKey .= Just B
-    EventKey (Char 'k') Down _ _ -> #attrKey .= Just K
-    EventKey (SpecialKey KeyEsc) Down _ _ -> #attrKey .= Nothing
-    EventMotion (clamp (- windowWidth / 2, windowWidth / 2) -> x, _y) ->
-        gets (view #attrKey) >>= \case
-            Just H -> updateLight #hue 1
-            Just S -> updateLight #saturation 1
-            Just B -> updateLight #brightness 1
-            Just K -> updateLight #kelvin 8
-            _ -> pure ()
-      where
-        updateLight l m = do
-            #hsbk % l .= round ((x + windowWidth / 2) * fromIntegral (maxBound @Word16) / windowWidth / m)
+    EventKey (Char 'h') Down _ _ -> #dimension .= Just H
+    EventKey (Char 's') Down _ _ -> #dimension .= Just S
+    EventKey (Char 'b') Down _ _ -> #dimension .= Just B
+    EventKey (Char 'k') Down _ _ -> #dimension .= Just K
+    EventKey (SpecialKey KeyEsc) Down _ _ -> #dimension .= Nothing
+    EventMotion (clamp (0, 1) . (+ 0.5) . (/ w) -> x, _y) ->
+        gets (view #dimension) >>= maybe (pure ()) \d -> do
+            let l = fromIntegral $ cdLower d
+                u = fromIntegral $ cdUpper d
+            #hsbk % cdLens d .= round (u * x - l * (x - 1))
             sendMessage addr . flip SetColor (Duration 0) =<< gets (view #hsbk)
     _ -> pure ()
 
@@ -96,15 +136,11 @@ update windowWidth addr = \case
 colour0 :: HSBK
 colour0 = HSBK 0 0 30_000 2_500
 
-{- Util -}
+-- this is as a fraction of the smaller of window width and height
+lineWidthFactor :: Float
+lineWidthFactor = 1 / 80
 
--- | Like 'text' but reflects newlines.
-text' :: Float -> Text -> Picture
-text' spacing =
-    pictures
-        . zipWith (\i -> translate 0 (i * (- spacing))) [0 ..]
-        . map (text . T.unpack)
-        . T.lines
+{- Util -}
 
 clamp :: (Ord a) => (a, a) -> a -> a
 clamp (l, u) = max l . min u
@@ -113,7 +149,7 @@ clamp (l, u) = max l . min u
 interactM ::
     (forall a. m a -> s -> IO (a, s)) ->
     Display ->
-    Graphics.Gloss.Color ->
+    Color ->
     s ->
     (s -> IO Picture) ->
     (Event -> m ()) ->
