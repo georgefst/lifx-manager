@@ -2,6 +2,8 @@ module Main (main) where
 
 import Control.Monad.Reader
 import Control.Monad.State
+import Data.Colour.RGBSpace
+import Data.Colour.RGBSpace.HSV (hsv)
 import Data.Composition
 import Data.List.Extra
 import Data.Tuple.Extra
@@ -22,6 +24,7 @@ data Opts = Opts
       width :: Float
     , -- | 0 to 1
       height :: Float
+    , columns :: Int
     }
     deriving (Generic, Show, ParseRecord)
 
@@ -45,12 +48,6 @@ cdUpper :: ColourDimension -> Word16
 cdUpper = \case
     K -> 9000
     _ -> maxBound
-cdCol :: ColourDimension -> Color
-cdCol = \case
-    H -> red
-    S -> green
-    B -> blue
-    K -> yellow
 
 data AppState = AppState
     { hsbk :: HSBK
@@ -79,21 +76,25 @@ main = do
         )
         white
         (AppState colour0 Nothing, (e, s0))
-        (pure . render (windowWidth, windowHeight) . fst)
+        (pure . render columns (windowWidth, windowHeight) . fst)
         (update windowWidth $ unIp ip)
         mempty
   where
     f a ((b, c), d) = (b, (c, (a, d)))
 
-render :: (Float, Float) -> AppState -> Picture
-render (w, h) AppState{..} =
+render :: Int -> (Float, Float) -> AppState -> Picture
+render (fromIntegral -> columns) (w, h) AppState{..} =
     pictures $
         zipWith
             ( \d y ->
                 pictures
                     [ -- background
-                      rectangleSolid w rectHeight
-                        & color (cdCol d)
+                      pictures $
+                        [0 .. columns - 1] <&> \x ->
+                            let x' = (x + 0.5) / columns -- x coordinate of the bar's centre, in the interval [0,1]
+                             in rectangleSolid columnWidth rectHeight
+                                    & color (hsbkToGloss $ hsbk & cdLens d .~ round (x' * maxWord16))
+                                    & translate (w * (x' - 0.5)) 0
                     , -- current value marker
                       rectangleSolid lineWidth rectHeight
                         & translate (- w / 2) 0
@@ -113,6 +114,7 @@ render (w, h) AppState{..} =
   where
     lineWidth = min w h * lineWidthFactor
     rectHeight = h / 4
+    columnWidth = w / columns
 
 update :: Float -> HostAddress -> Event -> StateT AppState Lifx ()
 update w addr = \case
@@ -168,3 +170,19 @@ instance Read Ip where
     readsPrec _ s = case map read $ splitOn "." s of
         [a, b, c, d] -> pure . (,"") . Ip $ tupleToHostAddress (a, b, c, d)
         _ -> []
+
+hsbkToGloss :: HSBK -> Color
+hsbkToGloss HSBK{..} =
+    let RGB{..} =
+            hsv
+                (360 * fromIntegral hue / maxWord16)
+                (fromIntegral saturation / maxWord16)
+                (fromIntegral brightness / maxWord16)
+     in makeColor
+            channelRed
+            channelGreen
+            channelBlue
+            1
+
+maxWord16 :: Float
+maxWord16 = fromIntegral $ maxBound @Word16
