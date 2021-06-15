@@ -1,10 +1,10 @@
 module Main (main) where
 
+import Control.Monad.Except
 import Control.Monad.Reader
 import Control.Monad.State
 import Data.Colour.RGBSpace
 import Data.Colour.RGBSpace.HSV (hsv)
-import Data.Composition
 import Data.List.Extra
 import Data.Tuple.Extra
 import Data.Word
@@ -16,6 +16,7 @@ import Network.Socket
 import Optics hiding (both)
 import Optics.State.Operators
 import Options.Generic
+import Text.Pretty.Simple (pPrint)
 
 data Opts = Opts
     { -- | local address of target light
@@ -62,9 +63,17 @@ main = do
     (screenWidth, screenHeight) <- both fromIntegral <$> getScreenSize
     let windowWidth = screenWidth * width
         windowHeight = screenHeight * height
-    (e, s0) <- runLifx $ ((,) .: (,)) <$> getSocket <*> getSource <*> getCounter
+    (e, s0, LightState{hsbk = colour0}) <-
+        runLifx $
+            (,,) <$> ((,) <$> getSocket <*> getSource)
+                <*> getCounter
+                <*> sendMessage (unIp ip) GetColor
     interactM
-        (\x (a, (_e, s)) -> f e <$> runReaderT (runStateT (unLifxT (runStateT x a)) s) e)
+        ( \(a, (_e, s)) x ->
+            runExceptT (runReaderT (runStateT (unLifxT (runStateT x a)) s) e) >>= \case
+                Left err -> pPrint err >> pure Nothing
+                Right r -> pure . pure $ f e r
+        )
         ( InWindow
             "LIFX"
             ( round windowWidth
@@ -135,9 +144,6 @@ update w addr = \case
 
 {- Config -}
 
-colour0 :: HSBK
-colour0 = HSBK 0 0 30_000 2_500
-
 -- this is as a fraction of the smaller of window width and height
 lineWidthFactor :: Float
 lineWidthFactor = 1 / 80
@@ -147,9 +153,9 @@ lineWidthFactor = 1 / 80
 clamp :: (Ord a) => (a, a) -> a -> a
 clamp (l, u) = max l . min u
 
--- | Like 'interactIO', but with the update function in an arbitrary `StateT s IO`-like monad.
+-- | Like 'interactIO', but with the update function in an arbitrary `StateT s (ExceptT e IO)`-like monad.
 interactM ::
-    (forall a. m a -> s -> IO (a, s)) ->
+    (forall a. s -> m a -> IO (Maybe (a, s))) ->
     Display ->
     Color ->
     s ->
@@ -157,7 +163,7 @@ interactM ::
     (Event -> m ()) ->
     (Controller -> IO ()) ->
     IO ()
-interactM trans d c s v u = interactIO d c s v (fmap snd .: (trans . u))
+interactM trans d c s0 v u = interactIO d c s0 v (flip \s -> fmap (maybe s snd) . trans s . u)
 
 newtype Ip = Ip {unIp :: HostAddress}
     deriving stock (Generic)
