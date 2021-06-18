@@ -10,6 +10,7 @@ import Data.List.NonEmpty (nonEmpty)
 import Data.List.NonEmpty qualified as NE
 import Data.Stream.Infinite (Stream)
 import Data.Stream.Infinite qualified as Stream
+import Data.Text qualified as T
 import Data.Text.Encoding (decodeUtf8)
 import Data.Text.IO qualified as T
 import Data.Tuple.Extra
@@ -134,6 +135,7 @@ render lineWidthProportion (fromIntegral -> columns) (w, h) AppState{..} =
             <> map
                 (flip (translate 0) $ rectangleSolid w lineWidth)
                 (take 5 [rectHeight * 2, rectHeight ..])
+            <> [text . T.unpack . fst . streamHead $ devices]
   where
     lineWidth = min w h / lineWidthProportion
     rectHeight = h / 4
