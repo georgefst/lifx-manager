@@ -129,6 +129,8 @@ update :: Float -> HostAddress -> Event -> StateT AppState Lifx ()
 update w addr = \case
     EventKey (MouseButton LeftButton) Up _ _ -> sendMessage addr $ SetPower True
     EventKey (MouseButton RightButton) Up _ _ -> sendMessage addr $ SetPower False
+    EventKey (SpecialKey KeySpace) Down _ _ ->
+        sendMessage addr . SetPower . (== 0) . view #power =<< sendMessage addr GetPower
     EventKey (Char 'h') Down _ _ -> #dimension .= Just H
     EventKey (Char 's') Down _ _ -> #dimension .= Just S
     EventKey (Char 'b') Down _ _ -> #dimension .= Just B
