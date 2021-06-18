@@ -65,7 +65,7 @@ main = do
         windowHeight = screenHeight * height
     (e, s0, LightState{hsbk = colour0}) <-
         runLifx $
-            (,,) <$> ((,) <$> getSocket <*> getSource)
+            (,,) <$> ((,,) <$> getSocket <*> getSource <*> getTimeout)
                 <*> getCounter
                 <*> sendMessage (unIp ip) GetColor
     interactM
