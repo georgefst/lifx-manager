@@ -80,7 +80,8 @@ main = do
                 (devs,colour0,,) <$> ((,,) <$> getSocket <*> getSource <*> getTimeout) <*> getCounter
             Nothing -> liftIO $ putStrLn "timed out without finding any devices!" >> exitFailure
     putStrLn "Found devices:"
-    pPrintOpt CheckColorTty defaultOutputOptionsDarkBg{outputOptionsInitialIndent = 4} devs
+    pPrintOpt CheckColorTty defaultOutputOptionsDarkBg{outputOptionsInitialIndent = 4} $
+        second hostAddressToTuple <$> devs
     interactM
         ( \(a, (_e, s)) x ->
             runExceptT (runReaderT (runStateT (unLifxT (runStateT x a)) s) e) >>= \case
