@@ -6,7 +6,8 @@ import Control.Monad.State
 import Data.Colour.RGBSpace
 import Data.Colour.RGBSpace.HSV (hsv)
 import Data.List.Extra
-import Data.List.NonEmpty (NonEmpty ((:|)))
+import Data.List.NonEmpty (nonEmpty)
+import Data.List.NonEmpty qualified as NE
 import Data.Stream.Infinite (Stream)
 import Data.Stream.Infinite qualified as Stream
 import Data.Text.Encoding (decodeUtf8)
@@ -72,16 +73,12 @@ main = do
     (screenWidth, screenHeight) <- both fromIntegral <$> getScreenSize
     let windowWidth = screenWidth * width
         windowHeight = screenHeight * height
-    (e, s0, (devs, colour0)) <-
-        runLifx $
-            (,,) <$> ((,,) <$> getSocket <*> getSource <*> getTimeout)
-                <*> getCounter
-                <*> do
-                    discoverDevices' >>= \case
-                        dev0 : devs' -> do
-                            LightState{hsbk = colour0} <- sendMessage (snd dev0) GetColor
-                            pure (dev0 :| devs', colour0)
-                        _ -> liftIO $ putStrLn "timed out without finding any devices!" >> exitFailure
+    (devs, colour0, e, s0) <- runLifx do
+        (nonEmpty <$> discoverDevices') >>= \case
+            Just devs -> do
+                LightState{hsbk = colour0} <- sendMessage (snd $ NE.head devs) GetColor
+                (devs,colour0,,) <$> ((,,) <$> getSocket <*> getSource <*> getTimeout) <*> getCounter
+            Nothing -> liftIO $ putStrLn "timed out without finding any devices!" >> exitFailure
     putStrLn "Found devices:"
     pPrintOpt CheckColorTty defaultOutputOptionsDarkBg{outputOptionsInitialIndent = 4} devs
     interactM
