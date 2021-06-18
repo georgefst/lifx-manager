@@ -145,7 +145,7 @@ render lineWidthProportion (fromIntegral -> columns) (w, h) AppState{..} =
 
 update :: Float -> Event -> StateT AppState Lifx ()
 update w event = do
-    addr <- gets $ snd . streamHead . view #devices
+    addr <- snd . streamHead <$> use #devices
     case event of
         EventKey (MouseButton LeftButton) Up _ _ -> sendMessage addr $ SetPower True
         EventKey (MouseButton RightButton) Up _ _ -> sendMessage addr $ SetPower False
@@ -157,7 +157,7 @@ update w event = do
         EventKey (Char 'k') Down _ _ -> #dimension .= Just K
         EventKey (SpecialKey KeyEsc) Down _ _ -> #dimension .= Nothing
         EventMotion (clamp (0, 1) . (+ 0.5) . (/ w) -> x, _y) ->
-            gets (view #dimension) >>= maybe (pure ()) \d -> do
+            use #dimension >>= maybe (pure ()) \d -> do
                 let l = fromIntegral $ cdLower d
                     u = fromIntegral $ cdUpper d
                 #hsbk % cdLens d .= round (u * x - l * (x - 1))
