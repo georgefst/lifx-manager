@@ -153,7 +153,7 @@ lineWidthFactor = 1 / 80
 clamp :: (Ord a) => (a, a) -> a -> a
 clamp (l, u) = max l . min u
 
--- | Like 'interactIO', but with the update function in an arbitrary `StateT s (ExceptT e IO)`-like monad.
+-- | Like 'interactIO', but with the update function in an arbitrary `StateT s (MaybeT IO)`-like monad.
 interactM ::
     (forall a. s -> m a -> IO (Maybe (a, s))) ->
     Display ->
