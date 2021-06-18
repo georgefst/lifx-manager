@@ -26,8 +26,12 @@ data Opts = Opts
     , -- | 0 to 1
       height :: Float
     , columns :: Int
+    , -- | divide the smaller of window width and height by this to get line width
+      lineWidthProportion :: Float
     }
-    deriving (Generic, Show, ParseRecord)
+    deriving (Generic, Show)
+instance ParseRecord Opts where
+    parseRecord = parseRecordWithModifiers lispCaseModifiers
 
 data ColourDimension
     = H
@@ -85,14 +89,14 @@ main = do
         )
         white
         (AppState colour0 Nothing, (e, s0))
-        (pure . render columns (windowWidth, windowHeight) . fst)
+        (pure . render lineWidthProportion columns (windowWidth, windowHeight) . fst)
         (update windowWidth $ unIp ip)
         mempty
   where
     f a ((b, c), d) = (b, (c, (a, d)))
 
-render :: Int -> (Float, Float) -> AppState -> Picture
-render (fromIntegral -> columns) (w, h) AppState{..} =
+render :: Float -> Int -> (Float, Float) -> AppState -> Picture
+render lineWidthProportion (fromIntegral -> columns) (w, h) AppState{..} =
     pictures $
         zipWith
             ( \d y ->
@@ -121,7 +125,7 @@ render (fromIntegral -> columns) (w, h) AppState{..} =
                 (flip (translate 0) $ rectangleSolid w lineWidth)
                 (take 5 [rectHeight * 2, rectHeight ..])
   where
-    lineWidth = min w h * lineWidthFactor
+    lineWidth = min w h / lineWidthProportion
     rectHeight = h / 4
     columnWidth = w / columns
 
@@ -143,12 +147,6 @@ update w addr = \case
             #hsbk % cdLens d .= round (u * x - l * (x - 1))
             sendMessage addr . flip SetColor (Duration 0) =<< gets (view #hsbk)
     _ -> pure ()
-
-{- Config -}
-
--- this is as a fraction of the smaller of window width and height
-lineWidthFactor :: Float
-lineWidthFactor = 1 / 80
 
 {- Util -}
 
