@@ -21,7 +21,7 @@ import Optics hiding (both)
 import Optics.State.Operators
 import Options.Generic
 import System.Exit
-import Text.Pretty.Simple (pPrint)
+import Text.Pretty.Simple hiding (Color)
 
 data Opts = Opts
     { -- | 0 to 1
@@ -82,6 +82,8 @@ main = do
                             LightState{hsbk = colour0} <- sendMessage (snd dev0) GetColor
                             pure (dev0 :| devs', colour0)
                         _ -> liftIO $ putStrLn "timed out without finding any devices!" >> exitFailure
+    putStrLn "Found devices:"
+    pPrintOpt CheckColorTty defaultOutputOptionsDarkBg{outputOptionsInitialIndent = 4} devs
     interactM
         ( \(a, (_e, s)) x ->
             runExceptT (runReaderT (runStateT (unLifxT (runStateT x a)) s) e) >>= \case
