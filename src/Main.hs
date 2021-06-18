@@ -3,7 +3,6 @@ module Main (main) where
 import Control.Monad.Except
 import Control.Monad.Reader
 import Control.Monad.State
-import Control.Monad.Trans.Maybe
 import Data.Colour.RGBSpace
 import Data.Colour.RGBSpace.HSV (hsv)
 import Data.List.Extra
@@ -73,8 +72,8 @@ main = do
     (screenWidth, screenHeight) <- both fromIntegral <$> getScreenSize
     let windowWidth = screenWidth * width
         windowHeight = screenHeight * height
-    initData <-
-        runLifx . runExceptT $
+    (e, s0, (devs, colour0)) <-
+        runLifx $
             (,,) <$> ((,,) <$> getSocket <*> getSource <*> getTimeout)
                 <*> getCounter
                 <*> do
@@ -82,10 +81,7 @@ main = do
                         dev0 : devs' -> do
                             LightState{hsbk = colour0} <- sendMessage (snd dev0) GetColor
                             pure (dev0 :| devs', colour0)
-                        _ -> ExceptT $ pure $ Left "timed out without finding any devices!"
-    (e, s0, (devs, colour0)) <- case initData of
-        Right r -> pure r
-        Left e -> putStrLn e >> exitFailure
+                        _ -> liftIO $ putStrLn "timed out without finding any devices!" >> exitFailure
     interactM
         ( \(a, (_e, s)) x ->
             runExceptT (runReaderT (runStateT (unLifxT (runStateT x a)) s) e) >>= \case
