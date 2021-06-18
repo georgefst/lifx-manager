@@ -80,8 +80,7 @@ main = do
                 (devs,colour0,,) <$> ((,,) <$> getSocket <*> getSource <*> getTimeout) <*> getCounter
             Nothing -> liftIO $ putStrLn "timed out without finding any devices!" >> exitFailure
     putStrLn "Found devices:"
-    pPrintOpt CheckColorTty defaultOutputOptionsDarkBg{outputOptionsInitialIndent = 4} $
-        second hostAddressToTuple <$> devs
+    pPrintIndented $ second hostAddressToTuple <$> devs
     interactM
         ( \(a, (_e, s)) x ->
             runExceptT (runReaderT (runStateT (unLifxT (runStateT x a)) s) e) >>= \case
@@ -210,3 +209,6 @@ discoverDevices' =
     discoverDevices
         >>= traverse
             (\addr -> (,addr) . decodeUtf8 . view #label <$> sendMessage addr GetColor)
+
+pPrintIndented :: (MonadIO m, Show a) => a -> m ()
+pPrintIndented = pPrintOpt CheckColorTty defaultOutputOptionsDarkBg{outputOptionsInitialIndent = 4}
