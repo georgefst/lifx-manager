@@ -11,6 +11,7 @@ import Data.List.NonEmpty qualified as NE
 import Data.Stream.Infinite (Stream)
 import Data.Stream.Infinite qualified as Stream
 import Data.Text.Encoding (decodeUtf8)
+import Data.Text.IO qualified as T
 import Data.Tuple.Extra
 import Data.Word
 import Graphics.Gloss
@@ -159,8 +160,9 @@ update w event = do
                 sendMessage addr . flip SetColor (Duration 0) =<< gets (view #hsbk)
         EventKey (Char 'l') Down _ _ -> do
             #devices %= Stream.tail
-            (_name, addr') <- streamHead <$> use #devices
+            (name, addr') <- streamHead <$> use #devices
             LightState{hsbk} <- sendMessage addr' GetColor
+            liftIO . T.putStrLn $ "Switching device: " <> name
             #hsbk .= hsbk
         _ -> pure ()
 
