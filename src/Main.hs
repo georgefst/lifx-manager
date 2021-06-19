@@ -61,6 +61,13 @@ cdUpper :: ColourDimension -> Word16
 cdUpper = \case
     K -> 9000
     _ -> maxBound
+cdFromChar :: Char -> Maybe ColourDimension
+cdFromChar = \case
+    'h' -> Just H
+    's' -> Just S
+    'b' -> Just B
+    'k' -> Just K
+    _ -> Nothing
 
 data AppState = AppState
     { hsbk :: HSBK
@@ -151,10 +158,7 @@ update w event = do
         EventKey (MouseButton RightButton) Up _ _ -> sendMessage addr $ SetPower False
         EventKey (SpecialKey KeySpace) Down _ _ ->
             sendMessage addr . SetPower . (== 0) . view #power =<< sendMessage addr GetPower
-        EventKey (Char 'h') Down _ _ -> #dimension .= Just H
-        EventKey (Char 's') Down _ _ -> #dimension .= Just S
-        EventKey (Char 'b') Down _ _ -> #dimension .= Just B
-        EventKey (Char 'k') Down _ _ -> #dimension .= Just K
+        EventKey (Char (cdFromChar -> Just d)) Down _ _ -> #dimension .= Just d
         EventKey (SpecialKey KeyEsc) Down _ _ -> #dimension .= Nothing
         EventMotion (clamp (0, 1) . (+ 0.5) . (/ w) -> x, _y) ->
             use #dimension >>= maybe (pure ()) \d -> do
