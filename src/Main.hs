@@ -34,6 +34,8 @@ data Opts = Opts
     , columns :: Int
     , -- | divide the smaller of window width and height by this to get line width
       lineWidthProportion :: Float
+    , -- | how many devices to look for at startup - if not given we just wait until default timeout
+      devices :: Maybe Int
     }
     deriving (Generic, Show)
 instance ParseRecord Opts where
@@ -76,7 +78,7 @@ main = do
     let windowWidth = screenWidth * width
         windowHeight = screenHeight * height
     (devs, colour0, e, s0) <- runLifx do
-        (nonEmpty <$> discoverDevices') >>= \case
+        (nonEmpty <$> discoverDevices' devices) >>= \case
             Just devs -> do
                 LightState{hsbk = colour0} <- sendMessage (snd $ NE.head devs) GetColor
                 (devs,colour0,,) <$> ((,,) <$> getSocket <*> getSource <*> getTimeout) <*> getCounter
@@ -208,9 +210,9 @@ maxWord16 = fromIntegral $ maxBound @Word16
 streamHead :: Stream a -> a
 streamHead = (Stream.!! 0)
 
-discoverDevices' :: MonadLifx m => m [(Text, HostAddress)]
-discoverDevices' =
-    discoverDevices
+discoverDevices' :: MonadLifx m => Maybe Int -> m [(Text, HostAddress)]
+discoverDevices' nDevices =
+    discoverDevices nDevices
         >>= traverse
             (\addr -> (,addr) . decodeUtf8 . view #label <$> sendMessage addr GetColor)
 

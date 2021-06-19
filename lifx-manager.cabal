@@ -41,6 +41,7 @@ executable lifx-manager
         DeriveGeneric
         DerivingStrategies
         DerivingVia
+        DuplicateRecordFields
         EmptyCase
         FlexibleContexts
         FlexibleInstances
