@@ -208,7 +208,7 @@ maxWord16 = fromIntegral $ maxBound @Word16
 streamHead :: Stream a -> a
 streamHead = (Stream.!! 0)
 
-discoverDevices' :: MonadLifx m => m [(Text, Word32)]
+discoverDevices' :: MonadLifx m => m [(Text, HostAddress)]
 discoverDevices' =
     discoverDevices
         >>= traverse
