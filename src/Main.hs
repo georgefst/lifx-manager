@@ -165,10 +165,15 @@ update w event = do
         EventKey (Char 'l') Down _ _ -> do
             #devices %= Stream.tail
             (name, addr') <- streamHead <$> use #devices
-            LightState{hsbk} <- sendMessage addr' GetColor
             liftIO . T.putStrLn $ "Switching device: " <> name
-            #hsbk .= hsbk
+            refreshState addr'
+        EventKey (Char 'r') Down _ _ ->
+            refreshState addr
         _ -> pure ()
+  where
+    refreshState addr = do
+        LightState{hsbk} <- sendMessage addr GetColor
+        #hsbk .= hsbk
 
 {- Util -}
 
