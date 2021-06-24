@@ -204,7 +204,7 @@ rgbToGloss RGB{..} =
         channelBlue
         1
 
--- | Note theat this ignores temperature.
+-- | Note that this ignores temperature.
 hsbToRgb :: HSBK -> RGB Float
 hsbToRgb HSBK{..} =
     hsv
@@ -212,30 +212,20 @@ hsbToRgb HSBK{..} =
         (fromIntegral saturation / maxWord16)
         (fromIntegral brightness / maxWord16)
 
+{- | Unlike 'hsbToRgb', this attempts to factor in temperature,
+though values are somewhat arbitrary and won't align perfectly with the bulb.
+-}
 hsbkToRgb :: HSBK -> RGB Float
-hsbkToRgb h@HSBK{..} =
-    let c = (* maxWord8) <$> hsbToRgb h
-        w = k2rgb kelvin
-        a = fromIntegral saturation / maxWord16
-        b = (1 - a) / maxWord8
-     in (\c' w' -> c' * (a + w' * b) / maxWord8) <$> c <*> w
-
-k2rgb :: Word16 -> RGB Float
-k2rgb kelvin =
-    clamp (0, maxWord8)
-        <$> if kelvin < 6600
-            then
-                RGB
-                    { channelRed = maxWord8
-                    , channelGreen = 100 * log (fromIntegral kelvin) - 620
-                    , channelBlue = 200 * log (fromIntegral kelvin) - 1500
+hsbkToRgb hsbk@HSBK{..} =
+    let r = fromIntegral saturation / maxWord16
+        krgb =
+            clamp (0, maxWord8)
+                <$> RGB
+                    { channelRed = 1
+                    , channelGreen = 0.39 * log (fromIntegral kelvin) - 2.43
+                    , channelBlue = 0.78 * log (fromIntegral kelvin) - 5.88
                     }
-            else
-                RGB
-                    { channelRed = 480.0 * ((fromIntegral kelvin - 6000) ** (-0.1))
-                    , channelGreen = 400.0 * ((fromIntegral kelvin - 6000) ** (-0.07))
-                    , channelBlue = maxWord8
-                    }
+     in (\c w -> c * (r + w * (1 - r))) <$> hsbToRgb hsbk <*> krgb
 
 maxWord8 :: Float
 maxWord8 = fromIntegral $ maxBound @Word8
