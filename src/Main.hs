@@ -1,5 +1,6 @@
 module Main (main) where
 
+import Control.Applicative
 import Control.Monad.Except
 import Control.Monad.Reader
 import Control.Monad.State
@@ -217,15 +218,18 @@ though values are somewhat arbitrary and won't align perfectly with the bulb.
 -}
 hsbkToRgb :: HSBK -> RGB Float
 hsbkToRgb hsbk@HSBK{..} =
-    let r = fromIntegral saturation / maxWord16
-        krgb =
-            clamp (0, maxWord8)
-                <$> RGB
-                    { channelRed = 1
-                    , channelGreen = 0.39 * log (fromIntegral kelvin) - 2.43
-                    , channelBlue = 0.78 * log (fromIntegral kelvin) - 5.88
-                    }
-     in (\c w -> c * (r + w * (1 - r))) <$> hsbToRgb hsbk <*> krgb
+    interpolateColour
+        (fromIntegral saturation / maxWord16)
+        (hsbToRgb hsbk)
+        $ clamp (0, maxWord8)
+            <$> RGB
+                { channelRed = 1
+                , channelGreen = 0.39 * log (fromIntegral kelvin) - 2.43
+                , channelBlue = 0.78 * log (fromIntegral kelvin) - 5.88
+                }
+
+interpolateColour :: Num a => a -> RGB a -> RGB a -> RGB a
+interpolateColour r = liftA2 (\a b -> a * (r + b * (1 - r)))
 
 maxWord8 :: Float
 maxWord8 = fromIntegral $ maxBound @Word8
