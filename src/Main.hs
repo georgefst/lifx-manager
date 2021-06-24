@@ -223,7 +223,7 @@ hsbkToRgb hsbk@HSBK{..} =
     interpolateColour
         (fromIntegral saturation / maxWord16)
         (hsbToRgb hsbk)
-        $ clamp (0, maxWord8)
+        $ clamp (0, 1)
             <$> RGB
                 { channelRed = 1
                 , channelGreen = 0.39 * log (fromIntegral kelvin) - 2.43
@@ -233,8 +233,6 @@ hsbkToRgb hsbk@HSBK{..} =
 interpolateColour :: Num a => a -> RGB a -> RGB a -> RGB a
 interpolateColour r = liftA2 (\a b -> a * (r + b * (1 - r)))
 
-maxWord8 :: Float
-maxWord8 = fromIntegral $ maxBound @Word8
 maxWord16 :: Float
 maxWord16 = fromIntegral $ maxBound @Word16
 
