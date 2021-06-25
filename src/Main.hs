@@ -123,24 +123,23 @@ render convertColour lineWidthProportion (fromIntegral -> columns) (w, h) AppSta
     pictures $
         zipWith
             ( \d y ->
-                pictures
-                    [ -- background
-                      pictures $
-                        [0 .. columns - 1] <&> \x ->
-                            let x' = (x + 0.5) / columns -- x coordinate of the bar's centre, in the interval [0,1]
-                             in rectangleSolid columnWidth rectHeight
-                                    & color (rgbToGloss . convertColour $ hsbk & cdLens d .~ round (x' * maxWord16))
-                                    & translate (w * (x' - 0.5)) 0
-                    , -- current value marker
-                      rectangleSolid lineWidth rectHeight
-                        & translate (- w / 2) 0
-                        & translate
-                            ( w * fromIntegral (view (cdLens d) hsbk - cdLower d)
-                                / fromIntegral (cdUpper d - cdLower d)
-                            )
-                            0
-                    ]
-                    & translate 0 (rectHeight * y)
+                let l = fromIntegral $ cdLower d
+                    u = fromIntegral $ cdUpper d
+                 in pictures
+                        [ -- background
+                          pictures $
+                            [0 .. columns - 1] <&> \x ->
+                                let x' = (x + 0.5) / columns -- x coordinate of the bar's centre, in the interval [0,1]
+                                 in rectangleSolid columnWidth rectHeight
+                                        & color
+                                            (rgbToGloss . convertColour $ hsbk & cdLens d .~ round (x' * (u - l) + l))
+                                        & translate (w * (x' - 0.5)) 0
+                        , -- current value marker
+                          rectangleSolid lineWidth rectHeight
+                            & translate (- w / 2) 0
+                            & translate (w * (fromIntegral (view (cdLens d) hsbk) - l) / (u - l)) 0
+                        ]
+                        & translate 0 (rectHeight * y)
             )
             enumerate
             [3 / 2, 1 / 2 ..]
@@ -226,9 +225,13 @@ hsbkToRgb hsbk@HSBK{..} =
         $ clamp (0, 1)
             <$> RGB
                 { channelRed = 1
-                , channelGreen = 0.39 * log (fromIntegral kelvin) - 2.43
-                , channelBlue = 0.78 * log (fromIntegral kelvin) - 5.88
+                , channelGreen = t / 2 + 0.5
+                , channelBlue = t
                 }
+  where
+    t =
+        (log (fromIntegral kelvin) - log (fromIntegral $ cdLower K))
+            / log (fromIntegral (cdUpper K) / fromIntegral (cdLower K))
 
 interpolateColour :: Num a => a -> RGB a -> RGB a -> RGB a
 interpolateColour r = liftA2 (\a b -> a * (r + b * (1 - r)))
