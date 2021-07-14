@@ -29,12 +29,12 @@ import Text.Pretty.Simple hiding (Color)
 
 data Opts = Opts
     { -- | 0 to 1
-      width :: Float
+      width :: Float <!> "0.5"
     , -- | 0 to 1
-      height :: Float
-    , columns :: Int
+      height :: Float <!> "0.5"
+    , columns :: Int <!> "100"
     , -- | divide the smaller of window width and height by this to get line width
-      lineWidthProportion :: Float
+      lineWidthProportion :: Float <!> "80"
     , -- | how many devices to look for at startup - if not given we just wait until default timeout
       devices :: Maybe Int
     , hideKelvin :: Bool
@@ -84,8 +84,8 @@ main :: IO ()
 main = do
     Opts{..} <- getRecord "LIFX"
     (screenWidth, screenHeight) <- both fromIntegral <$> getScreenSize
-    let windowWidth = screenWidth * width
-        windowHeight = screenHeight * height
+    let windowWidth = screenWidth * unDefValue width
+        windowHeight = screenHeight * unDefValue height
         convertColour = if hideKelvin then hsbToRgb else hsbkToRgb
     (devs, colour0, e, s0) <- runLifx do
         (nonEmpty <$> discoverDevices' devices) >>= \case
@@ -112,7 +112,10 @@ main = do
         )
         white
         (AppState colour0 Nothing (Stream.cycle devs), (e, s0))
-        (pure . render convertColour lineWidthProportion columns (windowWidth, windowHeight) . fst)
+        ( pure
+            . render convertColour (unDefValue lineWidthProportion) (unDefValue columns) (windowWidth, windowHeight)
+            . fst
+        )
         (update windowWidth)
         mempty
   where
