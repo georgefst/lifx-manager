@@ -20,7 +20,7 @@ executable lifx-manager
         containers ^>= 0.6.2.1,
         extra ^>= 1.7.1,
         gloss ^>= 1.13.2,
-        lifx-lan ^>= 0.3,
+        lifx-lan ^>= 0.4,
         monad-loops ^>= 0.4.3,
         mtl ^>= 2.2.2,
         network ^>= 3.1.1.1,

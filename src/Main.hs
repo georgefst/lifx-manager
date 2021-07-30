@@ -20,7 +20,6 @@ import Graphics.Gloss
 import Graphics.Gloss.Interface.Environment
 import Graphics.Gloss.Interface.IO.Interact
 import Lifx.Lan
-import Network.Socket
 import Optics hiding (both)
 import Optics.State.Operators
 import Options.Generic
@@ -76,7 +75,7 @@ data AppState = AppState
     , -- | Which axis, if any, we are currently moving.
       dimension :: Maybe ColourDimension
     , -- | All devices. Head is the active device.
-      devices :: Stream (Text, HostAddress)
+      devices :: Stream (Text, Device)
     }
     deriving (Show, Generic)
 
@@ -94,7 +93,7 @@ main = do
                 (devs,colour0,,) <$> ((,,) <$> getSocket <*> getSource <*> getTimeout) <*> getCounter
             Nothing -> liftIO $ putStrLn "timed out without finding any devices!" >> exitFailure
     putStrLn "Found devices:"
-    pPrintIndented $ second hostAddressToTuple <$> devs
+    pPrintIndented devs
     interactM
         ( \(a, (_e, s)) x ->
             runExceptT (runReaderT (runStateT (unLifxT (runStateT x a)) s) e) >>= \case
@@ -170,7 +169,7 @@ update w event = do
                 let l = fromIntegral $ cdLower d
                     u = fromIntegral $ cdUpper d
                 #hsbk % cdLens d .= round (u * x - l * (x - 1))
-                sendMessage addr . flip SetColor (Duration 0) =<< gets (view #hsbk)
+                sendMessage addr . flip SetColor 0 =<< gets (view #hsbk)
         EventKey (Char 'l') Down _ _ -> do
             #devices %= Stream.tail
             (name, addr') <- streamHead <$> use #devices
@@ -246,7 +245,7 @@ maxWord16 = fromIntegral $ maxBound @Word16
 streamHead :: Stream a -> a
 streamHead = (Stream.!! 0)
 
-discoverDevices' :: MonadLifx m => Maybe Int -> m [(Text, HostAddress)]
+discoverDevices' :: MonadLifx m => Maybe Int -> m [(Text, Device)]
 discoverDevices' nDevices =
     discoverDevices nDevices
         >>= traverse
