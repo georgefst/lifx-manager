@@ -210,30 +210,35 @@ rgbToGloss RGB{..} =
 
 -- | Note that this ignores temperature.
 hsbToRgb :: HSBK -> RGB Float
-hsbToRgb HSBK{..} =
-    hsv
-        (360 * fromIntegral hue / maxWord16)
-        (fromIntegral saturation / maxWord16)
-        (fromIntegral brightness / maxWord16)
+hsbToRgb = hsbkToRgb . (#saturation .~ maxBound)
 
 {- | Unlike 'hsbToRgb', this attempts to factor in temperature,
 though values are somewhat arbitrary and won't align perfectly with the bulb.
 -}
 hsbkToRgb :: HSBK -> RGB Float
-hsbkToRgb hsbk@HSBK{..} =
+hsbkToRgb HSBK{..} =
     interpolateColour
         (fromIntegral saturation / maxWord16)
-        (hsbToRgb hsbk)
-        $ clamp (0, 1)
-            <$> RGB
-                { channelRed = 1
-                , channelGreen = t / 2 + 0.5
-                , channelBlue = t
-                }
+        c
+        c'
   where
-    t =
-        (log (fromIntegral kelvin) - log (fromIntegral $ cdLower K))
-            / log (fromIntegral (cdUpper K) / fromIntegral (cdLower K))
+    -- no Kelvin
+    c =
+        hsv
+            (360 * fromIntegral hue / maxWord16)
+            (fromIntegral saturation / maxWord16)
+            (fromIntegral brightness / maxWord16)
+    -- just Kelvin
+    c' =
+        let t =
+                (log (fromIntegral kelvin) - log (fromIntegral $ cdLower K))
+                    / log (fromIntegral (cdUpper K) / fromIntegral (cdLower K))
+         in clamp (0, 1)
+                <$> RGB
+                    { channelRed = 1
+                    , channelGreen = t / 2 + 0.5
+                    , channelBlue = t
+                    }
 
 interpolateColour :: Num a => a -> RGB a -> RGB a -> RGB a
 interpolateColour r = liftA2 (\a b -> a * (r + b * (1 - r)))
