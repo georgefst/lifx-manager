@@ -166,7 +166,7 @@ update w event = do
                 let l = fromIntegral $ cdLower d
                     u = fromIntegral $ cdUpper d
                 #hsbk % cdLens d .= round (u * x - l * (x - 1))
-                sendMessage addr . flip SetColor 0 =<< gets (view #hsbk)
+                sendMessage addr . flip SetColor 0 =<< use #hsbk
         EventKey (Char 'l') Down _ _ -> do
             #devices %= Stream.tail
             (name, addr') <- streamHead <$> use #devices
