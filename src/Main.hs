@@ -134,7 +134,7 @@ render lineWidthProportion (fromIntegral -> columns) (w, h) AppState{..} =
                                 let x' = (x + 0.5) / columns -- x coordinate of the bar's centre, in the interval [0,1]
                                  in rectangleSolid columnWidth rectHeight
                                         & color
-                                            ( rgbToGloss . toRGB . hsbkToRgb $
+                                            ( rgbToGloss . toRGB . hsbkToColour $
                                                 hsbk & cdLens d .~ round (x' * (u - l) + l)
                                             )
                                         & translate (w * (x' - 0.5)) 0
@@ -210,8 +210,8 @@ rgbToGloss RGB{..} =
         channelBlue
         1
 
-hsbkToRgb :: HSBK -> Colour Float
-hsbkToRgb HSBK{..} =
+hsbkToColour :: HSBK -> Colour Float
+hsbkToColour HSBK{..} =
     blend
         (fromIntegral saturation / maxWord16)
         c
