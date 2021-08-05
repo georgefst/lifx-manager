@@ -36,7 +36,6 @@ data Opts = Opts
       lineWidthProportion :: Float <!> "80"
     , -- | how many devices to look for at startup - if not given we just wait until default timeout
       devices :: Maybe Int
-    , hideKelvin :: Bool
     }
     deriving (Generic, Show)
 instance ParseRecord Opts where
@@ -85,7 +84,6 @@ main = do
     (screenWidth, screenHeight) <- both fromIntegral <$> getScreenSize
     let windowWidth = screenWidth * unDefValue width
         windowHeight = screenHeight * unDefValue height
-        convertColour = if hideKelvin then hsbToRgb else hsbkToRgb
     (devs, colour0, e, s0) <- runLifx do
         (nonEmpty <$> discoverDevices' devices) >>= \case
             Just devs -> do
@@ -112,7 +110,7 @@ main = do
         white
         (AppState colour0 Nothing (Stream.cycle devs), (e, s0))
         ( pure
-            . render convertColour (unDefValue lineWidthProportion) (unDefValue columns) (windowWidth, windowHeight)
+            . render (unDefValue lineWidthProportion) (unDefValue columns) (windowWidth, windowHeight)
             . fst
         )
         (update windowWidth)
@@ -120,8 +118,8 @@ main = do
   where
     f a ((b, c), d) = (b, (c, (a, d)))
 
-render :: (HSBK -> RGB Float) -> Float -> Int -> (Float, Float) -> AppState -> Picture
-render convertColour lineWidthProportion (fromIntegral -> columns) (w, h) AppState{..} =
+render :: Float -> Int -> (Float, Float) -> AppState -> Picture
+render lineWidthProportion (fromIntegral -> columns) (w, h) AppState{..} =
     pictures $
         zipWith
             ( \d y ->
@@ -133,8 +131,7 @@ render convertColour lineWidthProportion (fromIntegral -> columns) (w, h) AppSta
                             [0 .. columns - 1] <&> \x ->
                                 let x' = (x + 0.5) / columns -- x coordinate of the bar's centre, in the interval [0,1]
                                  in rectangleSolid columnWidth rectHeight
-                                        & color
-                                            (rgbToGloss . convertColour $ hsbk & cdLens d .~ round (x' * (u - l) + l))
+                                        & color (rgbToGloss . hsbkToRgb $ hsbk & cdLens d .~ round (x' * (u - l) + l))
                                         & translate (w * (x' - 0.5)) 0
                         , -- current value marker
                           rectangleSolid lineWidth rectHeight
@@ -208,13 +205,6 @@ rgbToGloss RGB{..} =
         channelBlue
         1
 
--- | Note that this ignores temperature.
-hsbToRgb :: HSBK -> RGB Float
-hsbToRgb = hsbkToRgb . (#saturation .~ maxBound)
-
-{- | Unlike 'hsbToRgb', this attempts to factor in temperature,
-though values are somewhat arbitrary and won't align perfectly with the bulb.
--}
 hsbkToRgb :: HSBK -> RGB Float
 hsbkToRgb HSBK{..} =
     interpolateColour
