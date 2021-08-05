@@ -1,13 +1,11 @@
 module Main (main) where
 
+import Control.Applicative
 import Control.Monad.Except
 import Control.Monad.Reader
 import Control.Monad.State
-import Data.Colour
 import Data.Colour.RGBSpace
 import Data.Colour.RGBSpace.HSV (hsv)
-import Data.Colour.SRGB
-import Data.Colour.SRGB.Linear
 import Data.List.Extra
 import Data.List.NonEmpty (nonEmpty)
 import Data.List.NonEmpty qualified as NE
@@ -133,10 +131,7 @@ render lineWidthProportion (fromIntegral -> columns) (w, h) AppState{..} =
                             [0 .. columns - 1] <&> \x ->
                                 let x' = (x + 0.5) / columns -- x coordinate of the bar's centre, in the interval [0,1]
                                  in rectangleSolid columnWidth rectHeight
-                                        & color
-                                            ( rgbToGloss . toRGB . hsbkToColour $
-                                                hsbk & cdLens d .~ round (x' * (u - l) + l)
-                                            )
+                                        & color (rgbToGloss . hsbkToRgb $ hsbk & cdLens d .~ round (x' * (u - l) + l))
                                         & translate (w * (x' - 0.5)) 0
                         , -- current value marker
                           rectangleSolid lineWidth rectHeight
@@ -210,31 +205,36 @@ rgbToGloss RGB{..} =
         channelBlue
         1
 
-hsbkToColour :: HSBK -> Colour Float
-hsbkToColour HSBK{..} =
-    blend
+hsbkToRgb :: HSBK -> RGB Float
+hsbkToRgb HSBK{..} =
+    interpolateColour
         (fromIntegral saturation / maxWord16)
         c
         c'
   where
     -- no Kelvin
     c =
-        uncurryRGB sRGB $
-            hsv
-                (360 * fromIntegral hue / maxWord16)
-                (fromIntegral saturation / maxWord16)
-                (fromIntegral brightness / maxWord16)
+        hsv
+            (360 * fromIntegral hue / maxWord16)
+            (fromIntegral saturation / maxWord16)
+            (fromIntegral brightness / maxWord16)
     -- just Kelvin
     c' =
         let t =
                 (log (fromIntegral kelvin) - log (fromIntegral $ cdLower K))
                     / log (fromIntegral (cdUpper K) / fromIntegral (cdLower K))
-            cl = clamp (0, 1)
-         in rgb
-                1
-                (cl $ t / 2 + 0.5)
-                (cl t)
-    maxWord16 = fromIntegral $ maxBound @Word16
+         in clamp (0, 1)
+                <$> RGB
+                    { channelRed = 1
+                    , channelGreen = t / 2 + 0.5
+                    , channelBlue = t
+                    }
+
+interpolateColour :: Num a => a -> RGB a -> RGB a -> RGB a
+interpolateColour r = liftA2 (\a b -> a * (r + b * (1 - r)))
+
+maxWord16 :: Float
+maxWord16 = fromIntegral $ maxBound @Word16
 
 --TODO for some reason, there is no Stream.head: https://github.com/ekmett/streams/pull/19
 streamHead :: Stream a -> a
