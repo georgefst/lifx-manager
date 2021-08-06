@@ -31,6 +31,8 @@ data Opts = Opts
       width :: Float <!> "0.5"
     , -- | 0 to 1
       height :: Float <!> "0.5"
+    , -- | for keyboard controls, reciprocal of fraction of full range
+      inc :: Word16 <!> "100"
     , columns :: Int <!> "100"
     , -- | divide the smaller of window width and height by this to get line width
       lineWidthProportion :: Float <!> "80"
@@ -128,7 +130,7 @@ main = do
             . render (unDefValue lineWidthProportion) (unDefValue columns) (windowWidth, windowHeight)
             . fst
         )
-        (update windowWidth)
+        (update windowWidth (unDefValue inc))
         mempty
   where
     f a ((b, c), d) = (b, (c, (a, d)))
@@ -172,8 +174,8 @@ render lineWidthProportion (fromIntegral -> columns) (w, h) AppState{..} =
             ]
                 <> mwhen (not power) ["(powered off)"]
 
-update :: Float -> Event -> StateT AppState Lifx ()
-update w event = do
+update :: Float -> Word16 -> Event -> StateT AppState Lifx ()
+update w inc event = do
     addr <- snd . streamHead <$> use #devices
     case event of
         EventKey (MouseButton LeftButton) Up _ _ -> do
@@ -288,8 +290,3 @@ pPrintIndented = pPrintOpt CheckColorTty defaultOutputOptionsDarkBg{outputOption
 
 mwhen :: Monoid p => Bool -> p -> p
 mwhen b x = if b then x else mempty
-
---TODO CLI
--- as a fraction, inverted
-inc :: Word16
-inc = 256
