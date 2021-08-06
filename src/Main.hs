@@ -172,8 +172,10 @@ update w event = do
             p <- (== 0) . view #power <$> sendMessage addr GetPower
             #power .= p
             sendMessage addr $ SetPower p
-        EventKey (Char (cdFromChar -> Just d)) Down _ _ -> #dimension .= Just d
-        EventKey (SpecialKey KeyEsc) Down _ _ -> #dimension .= Nothing
+        EventKey (Char (cdFromChar -> Just d)) Down _ _ ->
+            #dimension .= Just d
+        EventKey (SpecialKey KeyEsc) Down _ _ ->
+            #dimension .= Nothing
         EventMotion (clamp (0, 1) . (+ 0.5) . (/ w) -> x, _y) ->
             use #dimension >>= maybe (pure ()) \d -> do
                 let l = fromIntegral $ cdLower d
