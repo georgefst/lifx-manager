@@ -1,0 +1,8 @@
+packages: .
+
+--TODO dynamically set title: https://github.com/benl23x5/gloss/pull/48
+source-repository-package
+    type: git
+    location: https://github.com/georgefst/gloss
+    subdir: gloss
+    tag: aadf1599732caf102b9ef8b2b69fb87f374ec46f

@@ -118,9 +118,9 @@ main = do
   where
     f a ((b, c), d) = (b, (c, (a, d)))
 
-render :: Float -> Int -> (Float, Float) -> AppState -> Picture
+render :: Float -> Int -> (Float, Float) -> AppState -> (Picture, String)
 render lineWidthProportion (fromIntegral -> columns) (w, h) AppState{..} =
-    pictures $
+    (,title) . pictures $
         zipWith
             ( \d y ->
                 let l = fromIntegral $ cdLower d
@@ -145,11 +145,16 @@ render lineWidthProportion (fromIntegral -> columns) (w, h) AppState{..} =
             <> map
                 (flip (translate 0) $ rectangleSolid w lineWidth)
                 (take 5 [rectHeight * 2, rectHeight ..])
-            <> [text . T.unpack . fst . streamHead $ devices]
   where
     lineWidth = min w h / lineWidthProportion
     rectHeight = h / 4
     columnWidth = w / columns
+    title =
+        unwords
+            [ "LIFX"
+            , "-"
+            , T.unpack (fst . streamHead $ devices)
+            ]
 
 update :: Float -> Event -> StateT AppState Lifx ()
 update w event = do
@@ -191,7 +196,7 @@ interactM ::
     Display ->
     Color ->
     s ->
-    (s -> IO Picture) ->
+    (s -> IO (Picture, String)) ->
     (Event -> m ()) ->
     (Controller -> IO ()) ->
     IO ()
