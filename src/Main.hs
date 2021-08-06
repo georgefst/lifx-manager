@@ -176,26 +176,26 @@ render lineWidthProportion (fromIntegral -> columns) (w, h) AppState{..} =
 
 update :: Float -> Word16 -> Event -> StateT AppState Lifx ()
 update w inc event = do
-    addr <- snd . streamHead <$> use #devices
+    dev <- snd . streamHead <$> use #devices
     case event of
         EventKey (MouseButton LeftButton) Up _ _ -> do
             #power .= True
-            sendMessage addr . SetPower =<< use #power
+            sendMessage dev . SetPower =<< use #power
         EventKey (MouseButton RightButton) Up _ _ -> do
             #power .= False
-            sendMessage addr . SetPower =<< use #power
+            sendMessage dev . SetPower =<< use #power
         EventKey (SpecialKey KeySpace) Down _ _ -> do
-            p <- (== 0) . view #power <$> sendMessage addr GetPower
+            p <- (== 0) . view #power <$> sendMessage dev GetPower
             #power .= p
-            sendMessage addr $ SetPower p
+            sendMessage dev $ SetPower p
         EventKey (Char (cdFromChar -> Just d)) Down _ _ ->
             #dimension .= Just d
         EventKey (cdKeyDown -> Just d) Down _ _ -> do
             #hsbk % cdLens d %= subtract ((cdUpper d - cdLower d) `div` inc)
-            updateColour addr
+            updateColour dev
         EventKey (cdKeyUp -> Just d) Down _ _ -> do
             #hsbk % cdLens d %= (+ (cdUpper d - cdLower d) `div` inc)
-            updateColour addr
+            updateColour dev
         EventKey (SpecialKey KeyEsc) Down _ _ ->
             #dimension .= Nothing
         EventMotion (clamp (0, 1) . (+ 0.5) . (/ w) -> x, _y) ->
@@ -203,19 +203,19 @@ update w inc event = do
                 let l = fromIntegral $ cdLower d
                     u = fromIntegral $ cdUpper d
                 #hsbk % cdLens d .= round (u * x - l * (x - 1))
-                updateColour addr
+                updateColour dev
         EventKey (Char 'l') Down _ _ -> do
             #devices %= Stream.tail
-            (name, addr') <- streamHead <$> use #devices
+            (name, dev') <- streamHead <$> use #devices
             liftIO . T.putStrLn $ "Switching device: " <> name
-            refreshState addr'
+            refreshState dev'
         EventKey (Char 'r') Down _ _ ->
-            refreshState addr
+            refreshState dev
         _ -> pure ()
   where
-    updateColour addr = sendMessage addr . flip SetColor 0 =<< use #hsbk
-    refreshState addr = do
-        LightState{hsbk, power} <- sendMessage addr GetColor
+    updateColour dev = sendMessage dev . flip SetColor 0 =<< use #hsbk
+    refreshState dev = do
+        LightState{hsbk, power} <- sendMessage dev GetColor
         #hsbk .= hsbk
         #power .= (power /= 0)
 
@@ -283,7 +283,7 @@ discoverDevices' :: MonadLifx m => Maybe Int -> m [(Text, Device)]
 discoverDevices' nDevices =
     discoverDevices nDevices
         >>= traverse
-            (\addr -> (,addr) . decodeUtf8 . view #label <$> sendMessage addr GetColor)
+            (\dev -> (,dev) . decodeUtf8 . view #label <$> sendMessage dev GetColor)
 
 pPrintIndented :: (MonadIO m, Show a) => a -> m ()
 pPrintIndented = pPrintOpt CheckColorTty defaultOutputOptionsDarkBg{outputOptionsInitialIndent = 4}
