@@ -71,6 +71,7 @@ cdFromChar = \case
 
 data AppState = AppState
     { hsbk :: HSBK
+    , power :: Bool
     , -- | Which axis, if any, we are currently moving.
       dimension :: Maybe ColourDimension
     , -- | All devices. Head is the active device.
@@ -84,11 +85,11 @@ main = do
     (screenWidth, screenHeight) <- both fromIntegral <$> getScreenSize
     let windowWidth = screenWidth * unDefValue width
         windowHeight = screenHeight * unDefValue height
-    (devs, colour0, e, s0) <- runLifx do
+    (devs, colour0, power0, e, s0) <- runLifx do
         (nonEmpty <$> discoverDevices' devices) >>= \case
             Just devs -> do
-                LightState{hsbk = colour0} <- sendMessage (snd $ NE.head devs) GetColor
-                (devs,colour0,,) <$> ((,,) <$> getSocket <*> getSource <*> getTimeout) <*> getCounter
+                LightState{hsbk = colour0, power = power0} <- sendMessage (snd $ NE.head devs) GetColor
+                (devs,colour0,power0 /= 0,,) <$> ((,,) <$> getSocket <*> getSource <*> getTimeout) <*> getCounter
             Nothing -> liftIO $ putStrLn "timed out without finding any devices!" >> exitFailure
     putStrLn "Found devices:"
     pPrintIndented devs
@@ -108,7 +109,7 @@ main = do
             )
         )
         white
-        (AppState colour0 Nothing (Stream.cycle devs), (e, s0))
+        (AppState colour0 power0 Nothing (Stream.cycle devs), (e, s0))
         ( pure
             . render (unDefValue lineWidthProportion) (unDefValue columns) (windowWidth, windowHeight)
             . fst
@@ -150,20 +151,27 @@ render lineWidthProportion (fromIntegral -> columns) (w, h) AppState{..} =
     rectHeight = h / 4
     columnWidth = w / columns
     title =
-        unwords
+        unwords $
             [ "LIFX"
             , "-"
             , T.unpack (fst . streamHead $ devices)
             ]
+                <> mwhen (not power) ["(powered off)"]
 
 update :: Float -> Event -> StateT AppState Lifx ()
 update w event = do
     addr <- snd . streamHead <$> use #devices
     case event of
-        EventKey (MouseButton LeftButton) Up _ _ -> sendMessage addr $ SetPower True
-        EventKey (MouseButton RightButton) Up _ _ -> sendMessage addr $ SetPower False
-        EventKey (SpecialKey KeySpace) Down _ _ ->
-            sendMessage addr . SetPower . (== 0) . view #power =<< sendMessage addr GetPower
+        EventKey (MouseButton LeftButton) Up _ _ -> do
+            #power .= True
+            sendMessage addr . SetPower =<< use #power
+        EventKey (MouseButton RightButton) Up _ _ -> do
+            #power .= False
+            sendMessage addr . SetPower =<< use #power
+        EventKey (SpecialKey KeySpace) Down _ _ -> do
+            p <- (== 0) . view #power <$> sendMessage addr GetPower
+            #power .= p
+            sendMessage addr $ SetPower p
         EventKey (Char (cdFromChar -> Just d)) Down _ _ -> #dimension .= Just d
         EventKey (SpecialKey KeyEsc) Down _ _ -> #dimension .= Nothing
         EventMotion (clamp (0, 1) . (+ 0.5) . (/ w) -> x, _y) ->
@@ -182,8 +190,9 @@ update w event = do
         _ -> pure ()
   where
     refreshState addr = do
-        LightState{hsbk} <- sendMessage addr GetColor
+        LightState{hsbk, power} <- sendMessage addr GetColor
         #hsbk .= hsbk
+        #power .= (power /= 0)
 
 {- Util -}
 
@@ -253,3 +262,6 @@ discoverDevices' nDevices =
 
 pPrintIndented :: (MonadIO m, Show a) => a -> m ()
 pPrintIndented = pPrintOpt CheckColorTty defaultOutputOptionsDarkBg{outputOptionsInitialIndent = 4}
+
+mwhen :: Monoid p => Bool -> p -> p
+mwhen b x = if b then x else mempty
