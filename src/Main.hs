@@ -191,10 +191,10 @@ update w inc event = do
         EventKey (Char (cdFromChar -> Just d)) Down _ _ ->
             #dimension .= Just d
         EventKey (cdKeyDown -> Just d) Down _ _ -> do
-            #hsbk % cdLens d %= subtract ((cdUpper d - cdLower d) `div` inc)
+            #hsbk % cdLens d %= subtract (cdInc d)
             updateColour dev
         EventKey (cdKeyUp -> Just d) Down _ _ -> do
-            #hsbk % cdLens d %= (+ (cdUpper d - cdLower d) `div` inc)
+            #hsbk % cdLens d %= (+ cdInc d)
             updateColour dev
         EventKey (SpecialKey KeyEsc) Down _ _ ->
             #dimension .= Nothing
@@ -218,6 +218,7 @@ update w inc event = do
         LightState{hsbk, power} <- sendMessage dev GetColor
         #hsbk .= hsbk
         #power .= (power /= 0)
+    cdInc d = (cdUpper d - cdLower d) `div` inc
 
 {- Util -}
 
