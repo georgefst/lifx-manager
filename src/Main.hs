@@ -22,7 +22,7 @@ import Graphics.Gloss.Interface.IO.Interact
 import Lifx.Lan
 import Optics hiding (both)
 import Optics.State.Operators
-import Options.Generic
+import Options.Generic hiding (Modifiers)
 import System.Exit
 import Text.Pretty.Simple hiding (Color)
 
@@ -67,6 +67,20 @@ cdFromChar = \case
     's' -> Just S
     'b' -> Just B
     'k' -> Just K
+    _ -> Nothing
+cdKeyDown :: Key -> Maybe ColourDimension
+cdKeyDown = \case
+    SpecialKey KeyLeft -> Just H
+    Char '-' -> Just S
+    SpecialKey KeyDown -> Just B
+    Char '[' -> Just K
+    _ -> Nothing
+cdKeyUp :: Key -> Maybe ColourDimension
+cdKeyUp = \case
+    SpecialKey KeyRight -> Just H
+    Char '=' -> Just S
+    SpecialKey KeyUp -> Just B
+    Char ']' -> Just K
     _ -> Nothing
 
 data AppState = AppState
@@ -174,6 +188,20 @@ update w event = do
             sendMessage addr $ SetPower p
         EventKey (Char (cdFromChar -> Just d)) Down _ _ ->
             #dimension .= Just d
+        EventKey (cdKeyDown -> Just d) Down Modifiers{shift, ctrl} _ -> do
+            if ctrl == Down
+                then #hsbk % cdLens d .= cdLower d
+                else
+                    let inc = if shift == Down then bigInc else smallInc
+                     in #hsbk % cdLens d %= subtract ((cdUpper d - cdLower d) `div` inc)
+            updateColour addr
+        EventKey (cdKeyUp -> Just d) Down Modifiers{shift, ctrl} _ -> do
+            if ctrl == Down
+                then #hsbk % cdLens d .= cdUpper d
+                else
+                    let inc = if shift == Down then bigInc else smallInc
+                     in #hsbk % cdLens d %= (+ (cdUpper d - cdLower d) `div` inc)
+            updateColour addr
         EventKey (SpecialKey KeyEsc) Down _ _ ->
             #dimension .= Nothing
         EventMotion (clamp (0, 1) . (+ 0.5) . (/ w) -> x, _y) ->
@@ -181,7 +209,7 @@ update w event = do
                 let l = fromIntegral $ cdLower d
                     u = fromIntegral $ cdUpper d
                 #hsbk % cdLens d .= round (u * x - l * (x - 1))
-                sendMessage addr . flip SetColor 0 =<< use #hsbk
+                updateColour addr
         EventKey (Char 'l') Down _ _ -> do
             #devices %= Stream.tail
             (name, addr') <- streamHead <$> use #devices
@@ -191,6 +219,7 @@ update w event = do
             refreshState addr
         _ -> pure ()
   where
+    updateColour addr = sendMessage addr . flip SetColor 0 =<< use #hsbk
     refreshState addr = do
         LightState{hsbk, power} <- sendMessage addr GetColor
         #hsbk .= hsbk
@@ -267,3 +296,9 @@ pPrintIndented = pPrintOpt CheckColorTty defaultOutputOptionsDarkBg{outputOption
 
 mwhen :: Monoid p => Bool -> p -> p
 mwhen b x = if b then x else mempty
+
+{- Constants -}
+
+-- as a fraction, inverted
+smallInc = 256
+bigInc = 16
