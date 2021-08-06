@@ -191,10 +191,10 @@ update w inc event = do
         EventKey (Char (cdFromChar -> Just d)) Down _ _ ->
             #dimension .= Just d
         EventKey (cdKeyDown -> Just d) Down _ _ -> do
-            #hsbk % cdLens d %= subtract (cdInc d)
+            #hsbk % cdLens d -= cdInc d
             updateColour dev
         EventKey (cdKeyUp -> Just d) Down _ _ -> do
-            #hsbk % cdLens d %= (+ cdInc d)
+            #hsbk % cdLens d += cdInc d
             updateColour dev
         EventKey (SpecialKey KeyEsc) Down _ _ ->
             #dimension .= Nothing
@@ -291,3 +291,9 @@ pPrintIndented = pPrintOpt CheckColorTty defaultOutputOptionsDarkBg{outputOption
 
 mwhen :: Monoid p => Bool -> p -> p
 mwhen b x = if b then x else mempty
+
+--TODO upstream: https://github.com/well-typed/optics/issues/433
+(+=) :: (Is k A_Setter, MonadState s m, Num a) => Optic' k is s a -> a -> m ()
+l += x = l %= (+ x)
+(-=) :: (Is k A_Setter, MonadState s m, Num a) => Optic' k is s a -> a -> m ()
+l -= x = l %= subtract x
