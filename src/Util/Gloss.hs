@@ -29,9 +29,9 @@ instance (MonadGloss m) => MonadGloss (MaybeT m) where
         h' = h'' <=< runMaybeT . h
         h'' = maybe (h' Nothing) pure
     initWorld = lift initWorld
-instance (MonadGloss m) => MonadGloss (ExceptT err' m) where
-    type World (ExceptT err' m) = World m
-    type Error (ExceptT err' m) = (Either err' (Error m))
+instance (MonadGloss m) => MonadGloss (ExceptT err m) where
+    type World (ExceptT err m) = World m
+    type Error (ExceptT err m) = (Either err (Error m))
     runUpdate h x s = runUpdate (h' . Right) (runExceptT x >>= h'') s
       where
         h' = h'' <=< runExceptT . h
@@ -47,9 +47,9 @@ instance (MonadGloss m) => MonadGloss (ReaderT r m) where
 instance (MonadGloss m) => MonadGloss (StateT s m) where
     type World (StateT s m) = (World m, s)
     type Error (StateT s m) = Error m
-    runUpdate h x (world0, s) = reTuple <$> runUpdate (run . h) (run x) world0
+    runUpdate h x (s, s') = reTuple <$> runUpdate (run . h) (run x) s
       where
-        run = flip runStateT s
+        run = flip runStateT s'
         reTuple (a, (b, c)) = ((a, c), b)
     initWorld = (,) <$> lift initWorld <*> get
 
