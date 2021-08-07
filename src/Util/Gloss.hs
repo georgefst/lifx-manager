@@ -1,5 +1,13 @@
 {-# LANGUAGE TypeFamilies #-}
 
+{-TODO
+upstream, or release separate library
+clean up variable names etc.
+somehow avoid awkward `Either () err` (~ `err`) error type for `EitherT err IO`?
+    similar for Reader etc.
+    probably difficult/impossible due to need for overlapping type family instances
+-}
+
 -- | Wrapper around 'interactIO', making it easier to use a state+error-like monad.
 module Util.Gloss (interactM) where
 
