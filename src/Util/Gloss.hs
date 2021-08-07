@@ -1,5 +1,4 @@
-{-# LANGUAGE FunctionalDependencies #-}
-{-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | Wrapper around 'interactIO', making it easier to use a state+error-like monad.
 module Util.Gloss (interactM) where
@@ -12,34 +11,42 @@ import Data.Bifunctor
 import Graphics.Gloss
 import Graphics.Gloss.Interface.IO.Interact
 
-class MonadIO m => MonadGloss m world err | m -> err, m -> world where
-    runUpdate :: (err -> m a) -> m a -> world -> IO (world, a)
-    initWorld :: m world
-instance MonadGloss IO () () where
+class MonadIO m => MonadGloss m where
+    type World m
+    type Error m
+    runUpdate :: (Error m -> m a) -> m a -> World m -> IO (World m, a)
+    initWorld :: m (World m)
+instance MonadGloss IO where
+    type World IO = ()
+    type Error IO = ()
     runUpdate _h x () = ((),) <$> x
     initWorld = pure ()
-instance (MonadGloss m world err) => MonadGloss (MaybeT m) world (Maybe err) where
-    runUpdate :: (Maybe err -> MaybeT m a) -> MaybeT m a -> (world -> IO (world, a))
+instance (MonadGloss m) => MonadGloss (MaybeT m) where
+    type World (MaybeT m) = World m
+    type Error (MaybeT m) = (Maybe (Error m))
     runUpdate h x s = runUpdate (h' . Just) (runMaybeT x >>= h'') s
       where
         h' = h'' <=< runMaybeT . h
         h'' = maybe (h' Nothing) pure
     initWorld = lift initWorld
-instance (MonadGloss m world err) => MonadGloss (ExceptT err' m) world (Either err' err) where
-    runUpdate :: (Either err' err -> ExceptT err' m a) -> ExceptT err' m a -> (world -> IO (world, a))
+instance (MonadGloss m) => MonadGloss (ExceptT err' m) where
+    type World (ExceptT err' m) = World m
+    type Error (ExceptT err' m) = (Either err' (Error m))
     runUpdate h x s = runUpdate (h' . Right) (runExceptT x >>= h'') s
       where
         h' = h'' <=< runExceptT . h
         h'' = either (h' . Left) pure
     initWorld = lift initWorld
-instance (MonadGloss m world err) => MonadGloss (ReaderT r m) (world, r) err where
-    runUpdate :: (err -> ReaderT r m a) -> ReaderT r m a -> (world, r) -> IO ((world, r), a)
+instance (MonadGloss m) => MonadGloss (ReaderT r m) where
+    type World (ReaderT r m) = (World m, r)
+    type Error (ReaderT r m) = Error m
     runUpdate h x (s, r) = first (,r) <$> runUpdate (run . h) (run x) s
       where
         run = flip runReaderT r
     initWorld = (,) <$> lift initWorld <*> ask
-instance (MonadGloss m world err) => MonadGloss (StateT s m) (world, s) err where
-    runUpdate :: (err -> StateT s m a) -> StateT s m a -> (world, s) -> IO ((world, s), a)
+instance (MonadGloss m) => MonadGloss (StateT s m) where
+    type World (StateT s m) = (World m, s)
+    type Error (StateT s m) = Error m
     runUpdate h x (world0, s) = reTuple <$> runUpdate (run . h) (run x) world0
       where
         run = flip runStateT s
@@ -47,13 +54,13 @@ instance (MonadGloss m world err) => MonadGloss (StateT s m) (world, s) err wher
     initWorld = (,) <$> lift initWorld <*> get
 
 interactM ::
-    MonadGloss m world e =>
+    MonadGloss m =>
     Display ->
     Color ->
-    (world -> IO (Picture, String)) ->
+    (World m -> IO (Picture, String)) ->
     (Event -> m ()) ->
     -- | Handle errors.
-    (e -> m ()) ->
+    (Error m -> m ()) ->
     (Controller -> IO ()) ->
     m ()
 interactM dis col draw upd he eat = do
