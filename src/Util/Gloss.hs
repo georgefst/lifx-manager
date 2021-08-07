@@ -27,9 +27,9 @@ instance (MonadGloss m world err) => MonadGloss (ReaderT r m) (world, r) err whe
     initWorld = (,) <$> lift initWorld <*> ask
 instance (MonadGloss m world err) => MonadGloss (StateT s m) (world, s) err where
     runUpdate :: (err -> IO a) -> StateT s m a -> (world, s) -> IO ((world, s), a)
-    runUpdate h x (world0, s) =
-        (\(x', (y, z)) -> ((x', z), y))
-            <$> runUpdate (fmap (,s) . h) (runStateT x s) world0
+    runUpdate h x (world0, s) = reTuple <$> runUpdate (fmap (,s) . h) (runStateT x s) world0
+      where
+        reTuple (a, (b, c)) = ((a, c), b)
     initWorld = (,) <$> lift initWorld <*> get
 
 interactM ::
