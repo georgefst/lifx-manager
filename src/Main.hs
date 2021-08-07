@@ -2,8 +2,8 @@ module Main (main) where
 
 import Control.Applicative
 import Control.Monad.Except
-import Control.Monad.Reader
 import Control.Monad.State
+import Data.Coerce
 import Data.Colour.RGBSpace
 import Data.Colour.RGBSpace.HSV (hsv)
 import Data.List.Extra
@@ -101,39 +101,34 @@ main = do
     (screenWidth, screenHeight) <- both fromIntegral <$> getScreenSize
     let windowWidth = screenWidth * unDefValue width
         windowHeight = screenHeight * unDefValue height
-    (devs, colour0, power0, e, s0) <- runLifx do
+    (devs, colour0, power0) <- runLifx do
         (nonEmpty <$> discoverDevices' devices) >>= \case
             Just devs -> do
                 LightState{hsbk = colour0, power = power0} <- sendMessage (snd $ NE.head devs) GetColor
-                (devs,colour0,power0 /= 0,,) <$> ((,,) <$> getSocket <*> getSource <*> getTimeout) <*> getCounter
+                pure (devs, colour0, power0 /= 0)
             Nothing -> liftIO $ putStrLn "timed out without finding any devices!" >> exitFailure
     putStrLn "Found devices:"
     pPrintIndented devs
-    interactM
-        ( \(a, (_e, s)) x ->
-            runExceptT (runReaderT (runStateT (unLifxT (runStateT x a)) s) e) >>= \case
-                Left err -> pPrint err >> pure Nothing
-                Right r -> pure . pure $ f e r
-        )
-        ( InWindow
-            "LIFX"
-            ( round windowWidth
-            , round windowHeight
-            )
-            ( round $ (screenWidth - windowWidth) / 2
-            , round $ (screenHeight - windowHeight) / 2
-            )
-        )
-        white
-        (AppState colour0 power0 Nothing (Stream.cycle devs), (e, s0))
-        ( pure
-            . render (unDefValue lineWidthProportion) (unDefValue columns) (windowWidth, windowHeight)
-            . fst
-        )
-        (update windowWidth (unDefValue inc))
-        mempty
-  where
-    f a ((b, c), d) = (b, (c, (a, d)))
+    runLifx . LifxT $
+        flip evalStateT (AppState colour0 power0 Nothing (Stream.cycle devs)) $
+            interactIO
+                ( InWindow
+                    "LIFX"
+                    ( round windowWidth
+                    , round windowHeight
+                    )
+                    ( round $ (screenWidth - windowWidth) / 2
+                    , round $ (screenHeight - windowHeight) / 2
+                    )
+                )
+                white
+                ( pure
+                    . render (unDefValue lineWidthProportion) (unDefValue columns) (windowWidth, windowHeight)
+                    . snd
+                )
+                (coerce update windowWidth (unDefValue inc))
+                (either pPrint pure)
+                mempty
 
 render :: Float -> Int -> (Float, Float) -> AppState -> (Picture, String)
 render lineWidthProportion (fromIntegral -> columns) (w, h) AppState{..} =
@@ -224,18 +219,6 @@ update w inc event = do
 
 clamp :: (Ord a) => (a, a) -> a -> a
 clamp (l, u) = max l . min u
-
--- | Like 'interactIO', but with the update function in an arbitrary `StateT s (MaybeT IO)`-like monad.
-interactM ::
-    (forall a. s -> m a -> IO (Maybe (a, s))) ->
-    Display ->
-    Color ->
-    s ->
-    (s -> IO (Picture, String)) ->
-    (Event -> m ()) ->
-    (Controller -> IO ()) ->
-    IO ()
-interactM trans d c s0 v u = interactIO d c s0 v (flip \s -> fmap (maybe s snd) . trans s . u)
 
 rgbToGloss :: RGB Float -> Color
 rgbToGloss RGB{..} =
