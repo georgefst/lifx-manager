@@ -25,6 +25,7 @@ import Optics.State.Operators
 import Options.Generic
 import System.Exit
 import Text.Pretty.Simple hiding (Color)
+import Util.Gloss
 
 data Opts = Opts
     { -- | 0 to 1
@@ -111,7 +112,7 @@ main = do
     pPrintIndented devs
     runLifx . LifxT $
         flip evalStateT (AppState colour0 power0 Nothing (Stream.cycle devs)) $
-            interactIO
+            interactM
                 ( InWindow
                     "LIFX"
                     ( round windowWidth

@@ -7,6 +7,8 @@ maintainer:         georgefsthomas@gmail.com
 
 executable lifx-manager
     main-is: Main.hs
+    other-modules:
+        Util.Gloss
     hs-source-dirs: src
     ghc-options:
         -Wall
@@ -48,6 +50,7 @@ executable lifx-manager
         FlexibleInstances
         GeneralizedNewtypeDeriving
         ImportQualifiedPost
+        InstanceSigs
         LambdaCase
         MultiParamTypeClasses
         NamedFieldPuns
