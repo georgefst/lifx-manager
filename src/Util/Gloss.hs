@@ -18,15 +18,15 @@ class MonadIO m => MonadGloss m world err | m -> err, m -> world where
 instance MonadGloss IO () () where
     runUpdate _h x () = ((),) <$> x
     initWorld = pure ()
-instance (MonadGloss m world err0) => MonadGloss (MaybeT m) world (Maybe err0) where
-    runUpdate :: (Maybe err0 -> MaybeT m a) -> MaybeT m a -> (world -> IO (world, a))
+instance (MonadGloss m world err) => MonadGloss (MaybeT m) world (Maybe err) where
+    runUpdate :: (Maybe err -> MaybeT m a) -> MaybeT m a -> (world -> IO (world, a))
     runUpdate h x s = runUpdate (h' . Just) (runMaybeT x >>= h'') s
       where
         h' = h'' <=< runMaybeT . h
         h'' = maybe (h' Nothing) pure
     initWorld = lift initWorld
-instance (MonadGloss m world err0) => MonadGloss (ExceptT err m) world (Either err err0) where
-    runUpdate :: (Either err err0 -> ExceptT err m a) -> ExceptT err m a -> (world -> IO (world, a))
+instance (MonadGloss m world err) => MonadGloss (ExceptT err' m) world (Either err' err) where
+    runUpdate :: (Either err' err -> ExceptT err' m a) -> ExceptT err' m a -> (world -> IO (world, a))
     runUpdate h x s = runUpdate (h' . Right) (runExceptT x >>= h'') s
       where
         h' = h'' <=< runExceptT . h
