@@ -102,6 +102,8 @@ data AppState = AppState
       dimension :: Maybe ColourDimension
     , -- | All devices. Head is the active device.
       devices :: Stream (Text, Device)
+    , windowWidth :: Float
+    , windowHeight :: Float
     , lastError :: Maybe LifxError
     }
     deriving (Show, Generic)
@@ -121,7 +123,7 @@ main = do
     putStrLn "Found devices:"
     pPrintIndented devs
     runLifx . LifxT $
-        flip evalStateT (AppState colour0 power0 Nothing (Stream.cycle devs) Nothing) $
+        flip evalStateT (AppState colour0 power0 Nothing (Stream.cycle devs) windowWidth windowHeight Nothing) $
             interactM
                 ( InWindow
                     "LIFX"
@@ -134,10 +136,10 @@ main = do
                 )
                 white
                 ( pure
-                    . render (unDefValue lineWidthProportion) (unDefValue columns) (windowWidth, windowHeight)
+                    . render (unDefValue lineWidthProportion) (unDefValue columns)
                     . snd
                 )
-                (coerce update windowWidth windowHeight (unDefValue inc))
+                (coerce update (unDefValue inc))
                 ( either
                     ( \e -> do
                         pPrint e
@@ -147,8 +149,8 @@ main = do
                 )
                 mempty
 
-render :: Float -> Int -> (Float, Float) -> AppState -> (Picture, String)
-render lineWidthProportion (fromIntegral -> columns) (w, h) AppState{..} =
+render :: Float -> Int -> AppState -> (Picture, String)
+render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, windowHeight = h, ..} =
     (,title) . pictures $
         zipWith
             ( \d y ->
@@ -187,8 +189,13 @@ render lineWidthProportion (fromIntegral -> columns) (w, h) AppState{..} =
             ]
                 <> mwhen (not power) ["(powered off)"]
 
-update :: Float -> Float -> Word16 -> Event -> StateT AppState Lifx ()
-update w h inc event = do
+update :: Word16 -> Event -> StateT AppState Lifx ()
+update inc event = do
+    w <- use #windowWidth
+    h <- use #windowHeight
+    let transform = bimap (f . (/ w)) (f . (/ h))
+          where
+            f = clamp (0, 1) . (+ 0.5)
     dev <- snd . streamHead <$> use #devices
     case event of
         EventKey (MouseButton LeftButton) Up _ (transform -> (x, y)) -> do
@@ -217,6 +224,9 @@ update w h inc event = do
             refreshState dev'
         EventKey (Char 'r') Down _ _ ->
             refreshState dev
+        EventResize (w', h') -> do
+            #windowWidth .= fromIntegral w'
+            #windowHeight .= fromIntegral h'
         _ -> pure ()
   where
     updateColour dev = sendMessage dev . flip SetColor 0 =<< use #hsbk
@@ -236,9 +246,6 @@ update w h inc event = do
       where
         l = fromIntegral $ cdLower d
         u = fromIntegral $ cdUpper d
-    transform = bimap (f . (/ w)) (f . (/ h))
-      where
-        f = clamp (0, 1) . (+ 0.5)
 
 {- Util -}
 
