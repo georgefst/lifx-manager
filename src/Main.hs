@@ -114,16 +114,23 @@ main = do
     (screenWidth, screenHeight) <- both fromIntegral <$> getScreenSize
     let windowWidth = screenWidth * unDefValue width
         windowHeight = screenHeight * unDefValue height
-    (devs, colour0, power0) <- runLifx do
+    (devs, hsbk, power) <- runLifx do
         (nonEmpty <$> discoverDevices' devices) >>= \case
             Just devs -> do
-                LightState{hsbk = colour0, power = power0} <- sendMessage (snd $ NE.head devs) GetColor
-                pure (devs, colour0, power0 /= 0)
+                LightState{..} <- sendMessage (snd $ NE.head devs) GetColor
+                pure (devs, hsbk, power /= 0)
             Nothing -> liftIO $ putStrLn "timed out without finding any devices!" >> exitFailure
     putStrLn "Found devices:"
     pPrintIndented devs
+    let s0 =
+            AppState
+                { dimension = Nothing
+                , devices = Stream.cycle devs
+                , lastError = Nothing
+                , ..
+                }
     runLifx . LifxT $
-        flip evalStateT (AppState colour0 power0 Nothing (Stream.cycle devs) windowWidth windowHeight Nothing) $
+        flip evalStateT s0 $
             interactM
                 ( InWindow
                     "LIFX"
