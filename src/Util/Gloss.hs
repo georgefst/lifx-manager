@@ -7,6 +7,7 @@ module Util.Gloss (interactM) where
 import Control.Monad.Except
 import Control.Monad.Reader
 import Control.Monad.State
+import Control.Monad.Trans.Maybe
 import Data.Bifunctor
 import Graphics.Gloss
 import Graphics.Gloss.Interface.IO.Interact
@@ -17,6 +18,13 @@ class MonadIO m => MonadGloss m world err | m -> err, m -> world where
 instance MonadGloss IO () () where
     runUpdate _h x () = ((),) <$> x
     initWorld = pure ()
+instance (MonadGloss m world err0) => MonadGloss (MaybeT m) world (Maybe err0) where
+    runUpdate :: (Maybe err0 -> MaybeT m a) -> MaybeT m a -> (world -> IO (world, a))
+    runUpdate h x s = runUpdate (h' . Just) (runMaybeT x >>= h'') s
+      where
+        h' = h'' <=< runMaybeT . h
+        h'' = maybe (h' Nothing) pure
+    initWorld = lift initWorld
 instance (MonadGloss m world err0) => MonadGloss (ExceptT err m) world (Either err err0) where
     runUpdate :: (Either err err0 -> ExceptT err m a) -> ExceptT err m a -> (world -> IO (world, a))
     runUpdate h x s = runUpdate (h' . Right) (runExceptT x >>= h'') s
