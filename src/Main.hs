@@ -93,6 +93,7 @@ data AppState = AppState
       dimension :: Maybe ColourDimension
     , -- | All devices. Head is the active device.
       devices :: Stream (Text, Device)
+    , lastError :: Maybe LifxError
     }
     deriving (Show, Generic)
 
@@ -111,7 +112,7 @@ main = do
     putStrLn "Found devices:"
     pPrintIndented devs
     runLifx . LifxT $
-        flip evalStateT (AppState colour0 power0 Nothing (Stream.cycle devs)) $
+        flip evalStateT (AppState colour0 power0 Nothing (Stream.cycle devs) Nothing) $
             interactM
                 ( InWindow
                     "LIFX"
@@ -128,7 +129,13 @@ main = do
                     . snd
                 )
                 (coerce update windowWidth (unDefValue inc))
-                (either pPrint pure)
+                ( either
+                    ( \e -> do
+                        pPrint e
+                        #lastError .= Just e
+                    )
+                    pure
+                )
                 mempty
 
 render :: Float -> Int -> (Float, Float) -> AppState -> (Picture, String)
@@ -158,6 +165,7 @@ render lineWidthProportion (fromIntegral -> columns) (w, h) AppState{..} =
             <> map
                 (flip (translate 0) $ rectangleSolid w lineWidth)
                 (take 5 [rectHeight * 2, rectHeight ..])
+            <> maybe [] (pure . color red . scale 0.2 0.2 . text . show) lastError
   where
     lineWidth = min w h / lineWidthProportion
     rectHeight = h / 4
@@ -211,6 +219,7 @@ update w inc event = do
   where
     updateColour dev = sendMessage dev . flip SetColor 0 =<< use #hsbk
     refreshState dev = do
+        #lastError .= Nothing
         LightState{hsbk, power} <- sendMessage dev GetColor
         #hsbk .= hsbk
         #power .= (power /= 0)
