@@ -3,6 +3,7 @@ module Main (main) where
 import Control.Applicative
 import Control.Monad.Except
 import Control.Monad.State
+import Data.Bifunctor
 import Data.Coerce
 import Data.Colour.RGBSpace
 import Data.Colour.RGBSpace.HSV (hsv)
@@ -85,6 +86,14 @@ cdKeyUp = \case
     SpecialKey KeyUp -> Just B
     Char ']' -> Just K
     _ -> Nothing
+cdFromY :: Float -> Maybe ColourDimension
+cdFromY y
+    | y > 1.00 = Nothing
+    | y > 0.75 = Just H
+    | y > 0.50 = Just S
+    | y > 0.25 = Just B
+    | y > 0.00 = Just K
+    | otherwise = Nothing
 
 data AppState = AppState
     { hsbk :: HSBK
@@ -128,7 +137,7 @@ main = do
                     . render (unDefValue lineWidthProportion) (unDefValue columns) (windowWidth, windowHeight)
                     . snd
                 )
-                (coerce update windowWidth (unDefValue inc))
+                (coerce update windowWidth windowHeight (unDefValue inc))
                 ( either
                     ( \e -> do
                         pPrint e
@@ -178,20 +187,17 @@ render lineWidthProportion (fromIntegral -> columns) (w, h) AppState{..} =
             ]
                 <> mwhen (not power) ["(powered off)"]
 
-update :: Float -> Word16 -> Event -> StateT AppState Lifx ()
-update w inc event = do
+update :: Float -> Float -> Word16 -> Event -> StateT AppState Lifx ()
+update w h inc event = do
     dev <- snd . streamHead <$> use #devices
     case event of
-        EventKey (MouseButton LeftButton) Up _ _ -> do
-            #power .= True
-            sendMessage dev . SetPower =<< use #power
-        EventKey (MouseButton RightButton) Up _ _ -> do
-            #power .= False
-            sendMessage dev . SetPower =<< use #power
-        EventKey (SpecialKey KeySpace) Down _ _ -> do
-            p <- not <$> use #power
-            #power .= p
-            sendMessage dev $ SetPower p
+        EventKey (MouseButton LeftButton) Up _ (transform -> (x, y)) -> do
+            #dimension .= Nothing
+            maybe (pure ()) (setColourFromX dev x) $ cdFromY y
+        EventKey (MouseButton RightButton) Up _ _ ->
+            togglePower dev
+        EventKey (SpecialKey KeySpace) Down _ _ ->
+            togglePower dev
         EventKey (Char (cdFromChar -> Just d)) Down _ _ ->
             #dimension .= Just d
         EventKey (cdKeyDown -> Just d) Down _ _ -> do
@@ -202,12 +208,8 @@ update w inc event = do
             updateColour dev
         EventKey (SpecialKey KeyEsc) Down _ _ ->
             #dimension .= Nothing
-        EventMotion (clamp (0, 1) . (+ 0.5) . (/ w) -> x, _y) ->
-            use #dimension >>= maybe (pure ()) \d -> do
-                let l = fromIntegral $ cdLower d
-                    u = fromIntegral $ cdUpper d
-                #hsbk % cdLens d .= round (u * x - l * (x - 1))
-                updateColour dev
+        EventMotion (transform -> (x, _y)) ->
+            use #dimension >>= maybe (pure ()) (setColourFromX dev x)
         EventKey (Char 'l') Down _ _ -> do
             #devices %= Stream.tail
             (name, dev') <- streamHead <$> use #devices
@@ -223,7 +225,20 @@ update w inc event = do
         LightState{hsbk, power} <- sendMessage dev GetColor
         #hsbk .= hsbk
         #power .= (power /= 0)
+    togglePower dev = do
+        p <- not <$> use #power
+        #power .= p
+        sendMessage dev $ SetPower p
     cdInc d = (cdUpper d - cdLower d) `div` inc
+    setColourFromX dev x d = do
+        #hsbk % cdLens d .= round (u * x - l * (x - 1))
+        updateColour dev
+      where
+        l = fromIntegral $ cdLower d
+        u = fromIntegral $ cdUpper d
+    transform = bimap (f . (/ w)) (f . (/ h))
+      where
+        f = clamp (0, 1) . (+ 0.5)
 
 {- Util -}
 
