@@ -189,7 +189,7 @@ update w inc event = do
             #power .= False
             sendMessage dev . SetPower =<< use #power
         EventKey (SpecialKey KeySpace) Down _ _ -> do
-            p <- (== 0) . view #power <$> sendMessage dev GetPower
+            p <- not <$> use #power
             #power .= p
             sendMessage dev $ SetPower p
         EventKey (Char (cdFromChar -> Just d)) Down _ _ ->
