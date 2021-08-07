@@ -12,23 +12,29 @@ import Graphics.Gloss
 import Graphics.Gloss.Interface.IO.Interact
 
 class MonadIO m => MonadGloss m world err | m -> err, m -> world where
-    runUpdate :: (err -> IO a) -> m a -> world -> IO (world, a)
+    runUpdate :: (err -> m a) -> m a -> world -> IO (world, a)
     initWorld :: m world
 instance MonadGloss IO () () where
     runUpdate _h x () = ((),) <$> x
     initWorld = pure ()
 instance (MonadGloss m world err0) => MonadGloss (ExceptT err m) world (Either err err0) where
-    runUpdate :: (Either err err0 -> IO a) -> ExceptT err m a -> (world -> IO (world, a))
-    runUpdate h x s = runUpdate (h . Right) (runExceptT x >>= either (liftIO . h . Left) pure) s
+    runUpdate :: (Either err err0 -> ExceptT err m a) -> ExceptT err m a -> (world -> IO (world, a))
+    runUpdate h x s = runUpdate (h' . Right) (runExceptT x >>= h'') s
+      where
+        h' = h'' <=< runExceptT . h
+        h'' = either (h' . Left) pure
     initWorld = lift initWorld
 instance (MonadGloss m world err) => MonadGloss (ReaderT r m) (world, r) err where
-    runUpdate :: (err -> IO a) -> ReaderT r m a -> (world, r) -> IO ((world, r), a)
-    runUpdate h x (s, r) = first (,r) <$> runUpdate h (runReaderT x r) s
+    runUpdate :: (err -> ReaderT r m a) -> ReaderT r m a -> (world, r) -> IO ((world, r), a)
+    runUpdate h x (s, r) = first (,r) <$> runUpdate (run . h) (run x) s
+      where
+        run = flip runReaderT r
     initWorld = (,) <$> lift initWorld <*> ask
 instance (MonadGloss m world err) => MonadGloss (StateT s m) (world, s) err where
-    runUpdate :: (err -> IO a) -> StateT s m a -> (world, s) -> IO ((world, s), a)
-    runUpdate h x (world0, s) = reTuple <$> runUpdate (fmap (,s) . h) (runStateT x s) world0
+    runUpdate :: (err -> StateT s m a) -> StateT s m a -> (world, s) -> IO ((world, s), a)
+    runUpdate h x (world0, s) = reTuple <$> runUpdate (run . h) (run x) world0
       where
+        run = flip runStateT s
         reTuple (a, (b, c)) = ((a, c), b)
     initWorld = (,) <$> lift initWorld <*> get
 
@@ -39,7 +45,7 @@ interactM ::
     (world -> IO (Picture, String)) ->
     (Event -> m ()) ->
     -- | Handle errors.
-    (e -> IO ()) ->
+    (e -> m ()) ->
     (Controller -> IO ()) ->
     m ()
 interactM dis col draw upd he eat = do
