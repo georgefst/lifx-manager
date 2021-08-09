@@ -16,7 +16,7 @@ import Data.Stream.Infinite qualified as Stream
 import Data.Text qualified as T
 import Data.Text.Encoding (decodeUtf8)
 import Data.Text.IO qualified as T
-import Data.Tuple.Extra
+import Data.Tuple.Extra hiding (first)
 import Data.Word
 import Graphics.Gloss
 import Graphics.Gloss.Interface.Environment
@@ -115,19 +115,18 @@ main = do
     (screenWidth, screenHeight) <- both fromIntegral <$> getScreenSize
     let windowWidth = screenWidth * unDefValue width
         windowHeight = screenHeight * unDefValue height
-    (devs, hsbk, power) <- runLifx do
-        (nonEmpty <$> discoverDevices' devices) >>= \case
-            Just devs -> do
-                LightState{..} <- sendMessage (snd $ NE.head devs) GetColor
-                pure (devs, hsbk, power /= 0)
-            Nothing -> liftIO $ putStrLn "timed out without finding any devices!" >> exitFailure
+    devs <-
+        maybe (liftIO $ putStrLn "timed out without finding any devices!" >> exitFailure) pure . nonEmpty
+            =<< runLifx (discoverDevices devices >>= traverse (\dev -> (,dev) <$> sendMessage dev GetColor))
+    let LightState{hsbk, power} = fst $ NE.head devs
     putStrLn "Found devices:"
     pPrintIndented devs
     let s0 =
             AppState
                 { dimension = Nothing
-                , devices = Stream.cycle devs
+                , devices = Stream.cycle $ first (decodeUtf8 . view #label) <$> devs
                 , lastError = Nothing
+                , power = power /= 0
                 , ..
                 }
     runLifx . LifxT $
@@ -312,12 +311,6 @@ maxWord16 = fromIntegral $ maxBound @Word16
 --TODO for some reason, there is no Stream.head: https://github.com/ekmett/streams/pull/19
 streamHead :: Stream a -> a
 streamHead = (Stream.!! 0)
-
-discoverDevices' :: MonadLifx m => Maybe Int -> m [(Text, Device)]
-discoverDevices' nDevices =
-    discoverDevices nDevices
-        >>= traverse
-            (\dev -> (,dev) . decodeUtf8 . view #label <$> sendMessage dev GetColor)
 
 pPrintIndented :: (MonadIO m, Show a) => a -> m ()
 pPrintIndented = pPrintOpt CheckColorTty defaultOutputOptionsDarkBg{outputOptionsInitialIndent = 4}
