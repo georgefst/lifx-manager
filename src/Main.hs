@@ -212,9 +212,12 @@ update inc event = do
             f = clamp (0, 1) . (+ 0.5)
     dev <- snd . streamHead <$> use #devices
     case event of
-        EventKey (MouseButton LeftButton) Up _ (transform -> (x, y)) -> do
-            #dimension .= Nothing
+        EventKey (MouseButton LeftButton) Down _ (transform -> (x, y)) -> do
+            #dimension .= cdFromY y
             maybe (pure ()) (setColourFromX dev x) $ cdFromY y
+        EventKey (MouseButton LeftButton) Up _ (transform -> (x, _y)) -> do
+            maybe (pure ()) (setColourFromX dev x) =<< use #dimension
+            #dimension .= Nothing
         EventKey (MouseButton RightButton) Up _ _ ->
             togglePower dev
         EventKey (SpecialKey KeySpace) Down _ _ ->
