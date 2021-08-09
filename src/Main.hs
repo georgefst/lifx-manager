@@ -50,7 +50,7 @@ data ColourDimension
     | S
     | B
     | K
-    deriving (Show, Generic, Enum, Bounded)
+    deriving (Eq, Show, Generic, Enum, Bounded)
 cdLens :: ColourDimension -> Lens' HSBK Word16
 cdLens = \case
     H -> #hue
@@ -172,9 +172,16 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
                                         & color (rgbToGloss . hsbkToRgb $ hsbk & cdLens d .~ round (x' * (u - l) + l))
                                         & translate (w * (x' - 0.5)) 0
                         , -- current value marker
-                          rectangleSolid lineWidth rectHeight
-                            & translate (- w / 2) 0
-                            & translate (w * (fromIntegral (view (cdLens d) hsbk) - l) / (u - l)) 0
+                          translate (w * (fromIntegral (view (cdLens d) hsbk) - l) / (u - l)) 0
+                            . translate (- w / 2) 0
+                            $ if dimension == Just d
+                                then
+                                    pictures
+                                        [ rectangleSolid (lineWidth * 3) rectHeight
+                                        , rectangleSolid lineWidth (rectHeight - lineWidth * 3)
+                                            & color (rgbToGloss $ hsbkToRgb hsbk)
+                                        ]
+                                else rectangleSolid lineWidth rectHeight
                         ]
                         & translate 0 (rectHeight * y)
             )
