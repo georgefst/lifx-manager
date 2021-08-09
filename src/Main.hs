@@ -7,6 +7,7 @@ import Data.Bifunctor
 import Data.Coerce
 import Data.Colour.RGBSpace
 import Data.Colour.RGBSpace.HSV (hsv)
+import Data.Foldable
 import Data.List.Extra
 import Data.List.NonEmpty (nonEmpty)
 import Data.List.NonEmpty qualified as NE
@@ -214,9 +215,9 @@ update inc event = do
     case event of
         EventKey (MouseButton LeftButton) Down _ (transform -> (x, y)) -> do
             #dimension .= cdFromY y
-            maybe (pure ()) (setColourFromX dev x) $ cdFromY y
+            traverse_ (setColourFromX dev x) $ cdFromY y
         EventKey (MouseButton LeftButton) Up _ (transform -> (x, _y)) -> do
-            maybe (pure ()) (setColourFromX dev x) =<< use #dimension
+            traverse_ (setColourFromX dev x) =<< use #dimension
             #dimension .= Nothing
         EventKey (MouseButton RightButton) Up _ _ ->
             togglePower dev
@@ -233,7 +234,7 @@ update inc event = do
         EventKey (SpecialKey KeyEsc) Down _ _ ->
             #dimension .= Nothing
         EventMotion (transform -> (x, _y)) ->
-            use #dimension >>= maybe (pure ()) (setColourFromX dev x)
+            traverse_ (setColourFromX dev x) =<< use #dimension
         EventKey (Char 'l') Down _ _ -> do
             #devices %= Stream.tail
             (name, dev') <- streamHead <$> use #devices
