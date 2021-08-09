@@ -1,12 +1,14 @@
 module Main (main) where
 
-import Control.Applicative
 import Control.Monad.Except
 import Control.Monad.State
 import Data.Bifunctor
 import Data.Coerce
+import Data.Colour
 import Data.Colour.RGBSpace
 import Data.Colour.RGBSpace.HSV (hsv)
+import Data.Colour.SRGB
+import Data.Colour.SRGB.Linear
 import Data.List.Extra
 import Data.List.NonEmpty (nonEmpty)
 import Data.List.NonEmpty qualified as NE
@@ -169,7 +171,7 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
                             [0 .. columns - 1] <&> \x ->
                                 let x' = (x + 0.5) / columns -- x coordinate of the bar's centre, in the interval [0,1]
                                  in rectangleSolid columnWidth rectHeight
-                                        & color (rgbToGloss . hsbkToRgb $ hsbk & cdLens d .~ round (x' * (u - l) + l))
+                                        & color (hsbkToGloss $ hsbk & cdLens d .~ round (x' * (u - l) + l))
                                         & translate (w * (x' - 0.5)) 0
                         , -- current value marker
                           rectangleSolid lineWidth rectHeight
@@ -259,41 +261,42 @@ update inc event = do
 clamp :: (Ord a) => (a, a) -> a -> a
 clamp (l, u) = max l . min u
 
-rgbToGloss :: RGB Float -> Color
-rgbToGloss RGB{..} =
-    makeColor
-        channelRed
-        channelGreen
-        channelBlue
-        1
-
-hsbkToRgb :: HSBK -> RGB Float
-hsbkToRgb HSBK{..} =
-    interpolateColour
+hsbkToColour :: HSBK -> Colour Float
+hsbkToColour HSBK{..} =
+    blend
         (fromIntegral saturation / maxWord16)
         c
         c'
   where
     -- no Kelvin
     c =
-        hsv
-            (360 * fromIntegral hue / maxWord16)
-            (fromIntegral saturation / maxWord16)
-            (fromIntegral brightness / maxWord16)
+        uncurryRGB sRGB $
+            hsv
+                (360 * fromIntegral hue / maxWord16)
+                (fromIntegral saturation / maxWord16)
+                (fromIntegral brightness / maxWord16)
     -- just Kelvin
     c' =
         let t =
                 (log (fromIntegral kelvin) - log (fromIntegral $ cdLower K))
                     / log (fromIntegral (cdUpper K) / fromIntegral (cdLower K))
-         in clamp (0, 1)
-                <$> RGB
-                    { channelRed = 1
-                    , channelGreen = t / 2 + 0.5
-                    , channelBlue = t
-                    }
+         in rgb
+                1
+                (clamp (0, 1) $ t / 2 + 0.5)
+                (clamp (0, 1) t)
 
-interpolateColour :: Num a => a -> RGB a -> RGB a -> RGB a
-interpolateColour r = liftA2 (\a b -> a * (r + b * (1 - r)))
+hsbkToGloss :: HSBK -> Color
+hsbkToGloss hsbk =
+    makeColor
+        channelRed
+        channelGreen
+        channelBlue
+        1
+  where
+    RGB{..} =
+        toRGB $
+            withOpacity (hsbkToColour hsbk) (fromIntegral (brightness hsbk) / maxWord16)
+                `Data.Colour.over` Data.Colour.black
 
 maxWord16 :: Float
 maxWord16 = fromIntegral $ maxBound @Word16
