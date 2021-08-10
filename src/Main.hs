@@ -120,7 +120,7 @@ main = do
             =<< runLifx (discoverDevices devices >>= traverse (\dev -> (,dev) <$> sendMessage dev GetColor))
     let LightState{hsbk, power} = fst $ NE.head devs
     putStrLn "Found devices:"
-    pPrintIndented devs
+    pPrintIndented $ NE.toList devs
     let s0 =
             AppState
                 { dimension = Nothing
