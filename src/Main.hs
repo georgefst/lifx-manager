@@ -159,36 +159,36 @@ main = do
 render :: Float -> Int -> AppState -> (Picture, String)
 render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, windowHeight = h, ..} =
     (,title) . pictures $
-        zipWith --FIXME format
+        zipWith
             ( \md y -> case md of --FIXME LambdaCase
-              Just d ->
-                let l = fromIntegral $ cdLower d
-                    u = fromIntegral $ cdUpper d
-                 in pictures
-                        [ -- background
-                          pictures $
-                            [0 .. columns - 1] <&> \x ->
-                                let x' = (x + 0.5) / columns -- x coordinate of the bar's centre, in the interval [0,1]
-                                 in rectangleSolid columnWidth rectHeight
-                                        & color (rgbToGloss . hsbkToRgb $ hsbk & cdLens d .~ round (x' * (u - l) + l))
-                                        & translate (w * (x' - 0.5)) 0
-                        , -- current value marker
-                          translate (w * (fromIntegral (view (cdLens d) hsbk) - l) / (u - l)) 0
-                            . translate (- w / 2) 0
-                            $ if dimension == Just d
-                                then
-                                    pictures
-                                        [ rectangleSolid (lineWidth * 3) rectHeight
-                                        , rectangleSolid lineWidth (rectHeight - lineWidth * 3)
-                                            & color (rgbToGloss $ hsbkToRgb hsbk)
-                                        ]
-                                else rectangleSolid lineWidth rectHeight
-                        ]
-                        & translate 0 ((y - 0.5) * rectHeight)
-              -- the bottom row - there's only one 'Nothing' in the list
-              Nothing ->
-                rectangleSolid w rectHeight & color (if power then white else black)
-                    & translate 0 ((y - 0.5) * rectHeight) --FIXME DRY
+                Just d ->
+                    let l = fromIntegral $ cdLower d
+                        u = fromIntegral $ cdUpper d
+                     in pictures
+                            [ -- background
+                              pictures $
+                                [0 .. columns - 1] <&> \x ->
+                                    let x' = (x + 0.5) / columns -- x coordinate of the bar's centre, in the interval [0,1]
+                                     in rectangleSolid columnWidth rectHeight
+                                            & color (rgbToGloss . hsbkToRgb $ hsbk & cdLens d .~ round (x' * (u - l) + l))
+                                            & translate (w * (x' - 0.5)) 0
+                            , -- current value marker
+                              translate (w * (fromIntegral (view (cdLens d) hsbk) - l) / (u - l)) 0
+                                . translate (- w / 2) 0
+                                $ if dimension == Just d
+                                    then
+                                        pictures
+                                            [ rectangleSolid (lineWidth * 3) rectHeight
+                                            , rectangleSolid lineWidth (rectHeight - lineWidth * 3)
+                                                & color (rgbToGloss $ hsbkToRgb hsbk)
+                                            ]
+                                    else rectangleSolid lineWidth rectHeight
+                            ]
+                            & translate 0 ((y - 0.5) * rectHeight)
+                -- the bottom row - there's only one 'Nothing' in the list
+                Nothing ->
+                    rectangleSolid w rectHeight & color (if power then white else black)
+                        & translate 0 ((y - 0.5) * rectHeight) --FIXME DRY
             )
             (map Just enumerate <> [Nothing])
             ys
