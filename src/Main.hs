@@ -101,6 +101,7 @@ data AppState = AppState
     deriving (Show, Generic)
 data Error
     = LifxError LifxError
+    | OutOfRangeX Float
     | OutOfRangeY Float
     deriving (Show)
 
@@ -180,7 +181,18 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
                                     else rectangleSolid lineWidth rectHeight
                             ]
                 -- the bottom row - there's only one 'Nothing' in the list
-                Nothing -> rectangleSolid w rectHeight & color (if power then white else black)
+                Nothing ->
+                    pictures
+                        [ -- power
+                          rectangleSolid (w / 2) rectHeight
+                            & translate (- w / 4) 0
+                            & color (if power then white else black)
+                        , -- next device
+                          rectangleSolid (w / 2) rectHeight
+                            & translate (w / 4) 0
+                            & color blue
+                        , rectangleSolid lineWidth rectHeight
+                        ]
             )
             (map Just enumerate <> [Nothing])
             ys
@@ -216,7 +228,12 @@ update inc event = do
                     | y > 0.60 -> setColour S
                     | y > 0.40 -> setColour B
                     | y > 0.20 -> setColour K
-                    | y >= 0.00 -> togglePower dev
+                    | y >= 0.00 ->
+                        if
+                                | x > 1.0 -> #lastError .= Just (OutOfRangeX x)
+                                | x > 0.5 -> nextDevice
+                                | x > 0.0 -> togglePower dev
+                                | otherwise -> #lastError .= Just (OutOfRangeX x)
                     | otherwise -> #lastError .= Just (OutOfRangeY y)
           where
             setColour d = do
