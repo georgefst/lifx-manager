@@ -183,15 +183,16 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
                                         ]
                                 else rectangleSolid lineWidth rectHeight
                         ]
-                        & translate 0 (rectHeight * y)
+                        & translate 0 ((y - 0.5) * rectHeight)
             )
             enumerate
-            [3 / 2, 1 / 2 ..]
-            <> map
-                (flip (translate 0) $ rectangleSolid w lineWidth)
-                (take 5 [rectHeight * 2, rectHeight ..])
+            ys
+            <> take
+                5
+                (map (\y -> translate 0 (y * rectHeight) $ rectangleSolid w lineWidth) ys)
             <> maybe [] (pure . color red . scale 0.2 0.2 . text . show) lastError
   where
+    ys = [2, 1 ..]
     lineWidth = min w h / lineWidthProportion
     rectHeight = h / 4
     columnWidth = w / columns
