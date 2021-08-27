@@ -241,11 +241,8 @@ update inc event = do
             #dimension .= Nothing
         EventMotion (transform -> (x, _y)) ->
             setColourFromX dev x
-        EventKey (Char 'l') Down _ _ -> do
-            #devices %= Stream.tail
-            (name, dev') <- streamHead <$> use #devices
-            liftIO . T.putStrLn $ "Switching device: " <> name
-            refreshState dev'
+        EventKey (Char 'l') Down _ _ ->
+            nextDevice
         EventKey (Char 'r') Down _ _ ->
             refreshState dev
         EventResize (w', h') -> do
@@ -253,6 +250,11 @@ update inc event = do
             #windowHeight .= fromIntegral h'
         _ -> pure ()
   where
+    nextDevice = do
+        #devices %= Stream.tail
+        (name, dev') <- streamHead <$> use #devices
+        liftIO . T.putStrLn $ "Switching device: " <> name
+        refreshState dev'
     updateColour dev = sendMessage dev . flip SetColor 0 =<< use #hsbk
     refreshState dev = do
         #lastError .= Nothing
