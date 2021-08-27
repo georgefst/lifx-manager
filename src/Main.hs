@@ -160,7 +160,7 @@ render :: Float -> Int -> AppState -> (Picture, String)
 render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, windowHeight = h, ..} =
     (,title) . pictures $
         zipWith
-            ( \md y -> case md of --FIXME LambdaCase
+            ( \md y -> translate 0 ((y - 0.5) * rectHeight) case md of
                 Just d ->
                     let l = fromIntegral $ cdLower d
                         u = fromIntegral $ cdUpper d
@@ -184,11 +184,8 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
                                             ]
                                     else rectangleSolid lineWidth rectHeight
                             ]
-                            & translate 0 ((y - 0.5) * rectHeight)
                 -- the bottom row - there's only one 'Nothing' in the list
-                Nothing ->
-                    rectangleSolid w rectHeight & color (if power then white else black)
-                        & translate 0 ((y - 0.5) * rectHeight) --FIXME DRY
+                Nothing -> rectangleSolid w rectHeight & color (if power then white else black)
             )
             (map Just enumerate <> [Nothing])
             ys
@@ -219,7 +216,7 @@ update inc event = do
         EventKey (MouseButton LeftButton) Down _ (transform -> (x, y)) -> case cdFromY y of
             Just d -> do
                 #dimension .= Just d
-                traverse_ (setColourFromX dev x) $ Just d --FIXME simplify
+                setColourFromX dev x d
             Nothing -> togglePower dev
         EventKey (MouseButton LeftButton) Up _ (transform -> (x, _y)) -> do
             traverse_ (setColourFromX dev x) =<< use #dimension
@@ -320,9 +317,6 @@ streamHead = (Stream.!! 0)
 
 pPrintIndented :: (MonadIO m, Show a) => a -> m ()
 pPrintIndented = pPrintOpt CheckColorTty defaultOutputOptionsDarkBg{outputOptionsInitialIndent = 4}
-
-mwhen :: Monoid p => Bool -> p -> p
-mwhen b x = if b then x else mempty
 
 --TODO upstream: https://github.com/well-typed/optics/issues/433
 (+=) :: (Is k A_Setter, MonadState s m, Num a) => Optic' k is s a -> a -> m ()
