@@ -96,9 +96,13 @@ data AppState = AppState
       devices :: Stream (Text, Device)
     , windowWidth :: Float
     , windowHeight :: Float
-    , lastError :: Maybe LifxError
+    , lastError :: Maybe Error
     }
     deriving (Show, Generic)
+data Error
+    = LifxError LifxError
+    | OutOfRangeY Float
+    deriving (Show)
 
 main :: IO ()
 main = do
@@ -141,7 +145,7 @@ main = do
                 ( either
                     ( \e -> do
                         pPrint e
-                        #lastError .= Just e
+                        #lastError .= Just (LifxError e)
                     )
                     pure
                 )
@@ -207,12 +211,13 @@ update inc event = do
         EventKey (MouseButton LeftButton) Down _ (transform -> (x, y)) ->
             --TODO Fourmolu should do better here - hang the `if` or at least avoid double indenting
             if
-                    | y > 1.00 -> togglePower dev
+                    | y > 1.00 -> #lastError .= Just (OutOfRangeY y)
                     | y > 0.80 -> setColour H
                     | y > 0.60 -> setColour S
                     | y > 0.40 -> setColour B
                     | y > 0.20 -> setColour K
-                    | otherwise -> togglePower dev
+                    | y >= 0.00 -> togglePower dev
+                    | otherwise -> #lastError .= Just (OutOfRangeY y)
           where
             setColour d = do
                 #dimension .= Just d
