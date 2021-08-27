@@ -187,14 +187,13 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
             )
             enumerate
             ys
-            <> take
-                5
-                (map (\y -> translate 0 (y * rectHeight) $ rectangleSolid w lineWidth) ys)
+            <> map (\y -> translate 0 (y * rectHeight) $ rectangleSolid w lineWidth) ys
             <> maybe [] (pure . color red . scale 0.2 0.2 . text . show) lastError
   where
-    ys = [2, 1 ..]
+    rows = 4
+    ys = [rows / 2, rows / 2 - 1 .. - rows / 2]
     lineWidth = min w h / lineWidthProportion
-    rectHeight = h / 4
+    rectHeight = h / rows
     columnWidth = w / columns
     title =
         unwords $
