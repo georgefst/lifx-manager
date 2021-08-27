@@ -7,7 +7,6 @@ import Data.Bifunctor
 import Data.Coerce
 import Data.Colour.RGBSpace
 import Data.Colour.RGBSpace.HSV (hsv)
-import Data.Foldable
 import Data.List.Extra
 import Data.List.NonEmpty (nonEmpty)
 import Data.List.NonEmpty qualified as NE
@@ -216,10 +215,10 @@ update inc event = do
         EventKey (MouseButton LeftButton) Down _ (transform -> (x, y)) -> case cdFromY y of
             Just d -> do
                 #dimension .= Just d
-                setColourFromX dev x d
+                setColourFromX dev x
             Nothing -> togglePower dev
         EventKey (MouseButton LeftButton) Up _ (transform -> (x, _y)) -> do
-            traverse_ (setColourFromX dev x) =<< use #dimension
+            setColourFromX dev x
             #dimension .= Nothing
         EventKey (MouseButton RightButton) Up _ _ ->
             togglePower dev
@@ -236,7 +235,7 @@ update inc event = do
         EventKey (SpecialKey KeyEsc) Down _ _ ->
             #dimension .= Nothing
         EventMotion (transform -> (x, _y)) ->
-            traverse_ (setColourFromX dev x) =<< use #dimension
+            setColourFromX dev x
         EventKey (Char 'l') Down _ _ -> do
             #devices %= Stream.tail
             (name, dev') <- streamHead <$> use #devices
@@ -260,12 +259,15 @@ update inc event = do
         #power .= p
         sendMessage dev $ SetPower p
     cdInc d = (cdUpper d - cdLower d) `div` inc
-    setColourFromX dev x d = do
-        #hsbk % cdLens d .= round (u * x - l * (x - 1))
-        updateColour dev
-      where
-        l = fromIntegral $ cdLower d
-        u = fromIntegral $ cdUpper d
+    setColourFromX dev x =
+        use #dimension >>= \case
+            Nothing -> pure ()
+            Just d -> do
+                #hsbk % cdLens d .= round (u * x - l * (x - 1))
+                updateColour dev
+              where
+                l = fromIntegral $ cdLower d
+                u = fromIntegral $ cdUpper d
 
 {- Util -}
 
