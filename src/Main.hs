@@ -90,10 +90,10 @@ cdKeyUp = \case
 cdFromY :: Float -> Maybe ColourDimension
 cdFromY y
     | y > 1.00 = Nothing
-    | y > 0.75 = Just H
-    | y > 0.50 = Just S
-    | y > 0.25 = Just B
-    | y > 0.00 = Just K
+    | y > 0.80 = Just H
+    | y > 0.60 = Just S
+    | y > 0.40 = Just B
+    | y > 0.20 = Just K
     | otherwise = Nothing
 
 data AppState = AppState
@@ -159,8 +159,9 @@ main = do
 render :: Float -> Int -> AppState -> (Picture, String)
 render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, windowHeight = h, ..} =
     (,title) . pictures $
-        zipWith
-            ( \d y ->
+        zipWith --FIXME format
+            ( \md y -> case md of --FIXME LambdaCase
+              Just d ->
                 let l = fromIntegral $ cdLower d
                     u = fromIntegral $ cdUpper d
                  in pictures
@@ -184,13 +185,17 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
                                 else rectangleSolid lineWidth rectHeight
                         ]
                         & translate 0 ((y - 0.5) * rectHeight)
+              -- the bottom row - there's only one 'Nothing' in the list
+              Nothing ->
+                rectangleSolid w rectHeight & color (if power then white else black)
+                    & translate 0 ((y - 0.5) * rectHeight) --FIXME DRY
             )
-            enumerate
+            (map Just enumerate <> [Nothing])
             ys
             <> map (\y -> translate 0 (y * rectHeight) $ rectangleSolid w lineWidth) ys
             <> maybe [] (pure . color red . scale 0.2 0.2 . text . show) lastError
   where
-    rows = 4
+    rows = 5
     ys = [rows / 2, rows / 2 - 1 .. - rows / 2]
     lineWidth = min w h / lineWidthProportion
     rectHeight = h / rows
@@ -212,9 +217,11 @@ update inc event = do
             f = clamp (0, 1) . (+ 0.5)
     dev <- snd . streamHead <$> use #devices
     case event of
-        EventKey (MouseButton LeftButton) Down _ (transform -> (x, y)) -> do
-            #dimension .= cdFromY y
-            traverse_ (setColourFromX dev x) $ cdFromY y
+        EventKey (MouseButton LeftButton) Down _ (transform -> (x, y)) -> case cdFromY y of
+            Just d -> do
+                #dimension .= Just d
+                traverse_ (setColourFromX dev x) $ Just d --FIXME simplify
+            Nothing -> togglePower dev
         EventKey (MouseButton LeftButton) Up _ (transform -> (x, _y)) -> do
             traverse_ (setColourFromX dev x) =<< use #dimension
             #dimension .= Nothing
