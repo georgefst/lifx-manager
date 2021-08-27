@@ -201,12 +201,11 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
     rectHeight = h / rows
     columnWidth = w / columns
     title =
-        unwords $
+        unwords
             [ "LIFX"
             , "-"
             , T.unpack (fst . streamHead $ devices)
             ]
-                <> mwhen (not power) ["(powered off)"]
 
 update :: Word16 -> Event -> StateT AppState Lifx ()
 update inc event = do
