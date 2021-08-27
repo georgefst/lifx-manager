@@ -86,14 +86,6 @@ cdKeyUp = \case
     SpecialKey KeyUp -> Just B
     Char ']' -> Just K
     _ -> Nothing
-cdFromY :: Float -> Maybe ColourDimension
-cdFromY y
-    | y > 1.00 = Nothing
-    | y > 0.80 = Just H
-    | y > 0.60 = Just S
-    | y > 0.40 = Just B
-    | y > 0.20 = Just K
-    | otherwise = Nothing
 
 data AppState = AppState
     { hsbk :: HSBK
@@ -212,11 +204,19 @@ update inc event = do
             f = clamp (0, 1) . (+ 0.5)
     dev <- snd . streamHead <$> use #devices
     case event of
-        EventKey (MouseButton LeftButton) Down _ (transform -> (x, y)) -> case cdFromY y of
-            Just d -> do
+        EventKey (MouseButton LeftButton) Down _ (transform -> (x, y)) ->
+            --TODO Fourmolu should do better here - hang the `if` or at least avoid double indenting
+            if
+                    | y > 1.00 -> togglePower dev
+                    | y > 0.80 -> setColour H
+                    | y > 0.60 -> setColour S
+                    | y > 0.40 -> setColour B
+                    | y > 0.20 -> setColour K
+                    | otherwise -> togglePower dev
+          where
+            setColour d = do
                 #dimension .= Just d
                 setColourFromX dev x
-            Nothing -> togglePower dev
         EventKey (MouseButton LeftButton) Up _ (transform -> (x, _y)) -> do
             setColourFromX dev x
             #dimension .= Nothing

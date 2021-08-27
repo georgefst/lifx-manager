@@ -54,6 +54,7 @@ executable lifx-manager
         InstanceSigs
         LambdaCase
         MultiParamTypeClasses
+        MultiWayIf
         NamedFieldPuns
         NumericUnderscores
         OverloadedLabels
