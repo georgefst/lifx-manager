@@ -206,9 +206,9 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
     columnWidth = w / columns
     title =
         unwords
-            [ "LIFX"
+            [ T.unpack (fst . streamHead $ devices)
             , "-"
-            , T.unpack (fst . streamHead $ devices)
+            , "LIFX"
             ]
 
 update :: Word16 -> Event -> StateT AppState Lifx ()
