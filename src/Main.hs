@@ -77,14 +77,14 @@ cdKeyDown = \case
     SpecialKey KeyLeft -> Just H
     Char '-' -> Just S
     SpecialKey KeyDown -> Just B
-    Char ']' -> Just K
+    Char '[' -> Just K
     _ -> Nothing
 cdKeyUp :: Key -> Maybe ColourDimension
 cdKeyUp = \case
     SpecialKey KeyRight -> Just H
     Char '=' -> Just S
     SpecialKey KeyUp -> Just B
-    Char '[' -> Just K
+    Char ']' -> Just K
     _ -> Nothing
 
 data AppState = AppState
