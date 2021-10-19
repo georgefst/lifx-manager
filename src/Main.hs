@@ -35,7 +35,7 @@ data Opts = Opts
       height :: Float <!> "0.5"
     , -- | for keyboard controls, reciprocal of fraction of full range
       inc :: Word16 <!> "100"
-    , columns :: Int <!> "100"
+    , columns :: Int <!> "1000"
     , -- | divide the smaller of window width and height by this to get line width
       lineWidthProportion :: Float <!> "80"
     , -- | how many devices to look for at startup - if not given we just wait until default timeout
