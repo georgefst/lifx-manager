@@ -190,7 +190,7 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
                         , -- next device
                           rectangleSolid w' rectHeight
                             & translate (w' / 2) 0
-                            & color blue
+                            & color (rgbToGloss $ hsbkToRgb hsbk)
                         , rectangleSolid lineWidth rectHeight
                         ]
                   where
