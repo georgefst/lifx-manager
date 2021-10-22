@@ -192,17 +192,20 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
                            in pictures
                                 [ rectangleSolid w' rectHeight
                                     & color (rgbToGloss $ hsbkToRgb hsbk)
-                                , polygon'
-                                    [ (-3, 1)
-                                    , (1, 1)
-                                    , (1, -1)
-                                    , (-3, -1)
+                                , pictures
+                                    [ polygon'
+                                        [ (-3, 1)
+                                        , (1, 1)
+                                        , (1, -1)
+                                        , (-3, -1)
+                                        ]
+                                    , polygon'
+                                        [ (1, 2)
+                                        , (3, 0)
+                                        , (1, -2)
+                                        ]
                                     ]
-                                , polygon'
-                                    [ (1, 2)
-                                    , (3, 0)
-                                    , (1, -2)
-                                    ]
+                                    & color (rgbToGloss $ invertRGB $ hsbkToRgb hsbk)
                                 ]
                                 & translate (w' / 2) 0
                         , rectangleSolid lineWidth rectHeight
@@ -321,6 +324,14 @@ rgbToGloss RGB{..} =
         channelGreen
         channelBlue
         1
+
+invertRGB :: RGB Float -> RGB Float
+invertRGB RGB{..} =
+    RGB
+        { channelRed = 1 - channelRed
+        , channelGreen = 1 - channelGreen
+        , channelBlue = 1 - channelBlue
+        }
 
 hsbkToRgb :: HSBK -> RGB Float
 hsbkToRgb HSBK{..} =
