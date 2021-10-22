@@ -187,6 +187,8 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
                           pictures
                             [ rectangleSolid w' rectHeight
                                 & color (if power then white else black)
+                            , circleSolid (min w' rectHeight / 5)
+                                & color (if power then black else white)
                             ]
                             & translate (- w' / 2) 0
                         , -- next device
