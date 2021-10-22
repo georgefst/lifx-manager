@@ -188,22 +188,28 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
                             & translate (- w' / 2) 0
                             & color (if power then white else black)
                         , -- next device
-                          let polygon' = polygon . map (both (/ 50) . ((* w) *** (* h)))
+                          let scale' = map (both (/ 50) . ((* w) *** (* h)))
+                              rectPoints =
+                                scale'
+                                    [ (1, -1)
+                                    , (-3, -1)
+                                    , (-3, 1)
+                                    , (1, 1)
+                                    ]
+                              trianglePoints =
+                                scale'
+                                    [ (1, 1)
+                                    , (1, 2)
+                                    , (3, 0)
+                                    , (1, -2)
+                                    , (1, -1)
+                                    ]
                            in pictures
                                 [ rectangleSolid w' rectHeight
                                     & color (rgbToGloss $ hsbkToRgb hsbk)
                                 , pictures
-                                    [ polygon'
-                                        [ (-3, 1)
-                                        , (1, 1)
-                                        , (1, -1)
-                                        , (-3, -1)
-                                        ]
-                                    , polygon'
-                                        [ (1, 2)
-                                        , (3, 0)
-                                        , (1, -2)
-                                        ]
+                                    [ polygon rectPoints
+                                    , polygon trianglePoints
                                     ]
                                     & color (rgbToGloss $ invertRGB $ hsbkToRgb hsbk)
                                 ]
