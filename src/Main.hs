@@ -188,9 +188,23 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
                             & translate (- w' / 2) 0
                             & color (if power then white else black)
                         , -- next device
-                          rectangleSolid w' rectHeight
-                            & color (rgbToGloss $ hsbkToRgb hsbk)
-                            & translate (w' / 2) 0
+                          let polygon' = polygon . map (both (/ 50) . ((* w) *** (* h)))
+                           in pictures
+                                [ rectangleSolid w' rectHeight
+                                    & color (rgbToGloss $ hsbkToRgb hsbk)
+                                , polygon'
+                                    [ (-3, 1)
+                                    , (1, 1)
+                                    , (1, -1)
+                                    , (-3, -1)
+                                    ]
+                                , polygon'
+                                    [ (1, 2)
+                                    , (3, 0)
+                                    , (1, -2)
+                                    ]
+                                ]
+                                & translate (w' / 2) 0
                         , rectangleSolid lineWidth rectHeight
                         ]
                   where
