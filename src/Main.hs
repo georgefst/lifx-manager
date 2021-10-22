@@ -212,6 +212,7 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
                                     , polygon trianglePoints
                                     ]
                                     & color (rgbToGloss $ invertRGB $ hsbkToRgb hsbk)
+                                , line $ rectPoints <> trianglePoints
                                 ]
                                 & translate (w' / 2) 0
                         , rectangleSolid lineWidth rectHeight
