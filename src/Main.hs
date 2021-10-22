@@ -184,9 +184,11 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
                 Nothing ->
                     pictures
                         [ -- power
-                          rectangleSolid w' rectHeight
+                          pictures
+                            [ rectangleSolid w' rectHeight
+                                & color (if power then white else black)
+                            ]
                             & translate (- w' / 2) 0
-                            & color (if power then white else black)
                         , -- next device
                           let scale' = map (both (/ 50) . ((* w) *** (* h)))
                               rectPoints =
