@@ -184,15 +184,17 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
                 Nothing ->
                     pictures
                         [ -- power
-                          rectangleSolid (w / 2) rectHeight
-                            & translate (- w / 4) 0
+                          rectangleSolid w' rectHeight
+                            & translate (- w' / 2) 0
                             & color (if power then white else black)
                         , -- next device
-                          rectangleSolid (w / 2) rectHeight
-                            & translate (w / 4) 0
+                          rectangleSolid w' rectHeight
+                            & translate (w' / 2) 0
                             & color blue
                         , rectangleSolid lineWidth rectHeight
                         ]
+                  where
+                    w' = w / 2
             )
             (map Just enumerate <> [Nothing])
             ys
