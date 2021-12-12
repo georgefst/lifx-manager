@@ -20,7 +20,7 @@ import Data.Word
 import Graphics.Gloss
 import Graphics.Gloss.Interface.Environment
 import Graphics.Gloss.Interface.IO.Interact
-import Lifx.Lan
+import Lifx.Lan hiding (color) --TODO hiding will be unnecessary with RecordDotSyntax
 import Optics hiding (both)
 import Optics.State.Operators
 import Options.Generic

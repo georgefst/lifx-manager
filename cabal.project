@@ -7,9 +7,3 @@ source-repository-package
     location: https://github.com/georgefst/gloss
     subdir: gloss
     tag: aadf1599732caf102b9ef8b2b69fb87f374ec46f
-
---TODO expose LifxT constructor: https://github.com/georgefst/lifx-lan/commit/9f97ee0e71a81d9176e78030fcea1ed46a55d030
-source-repository-package
-    type: git
-    location: https://github.com/georgefst/lifx-lan
-    tag: 9f97ee0e71a81d9176e78030fcea1ed46a55d030
