@@ -118,14 +118,25 @@ main = do
         windowHeight = screenHeight * unDefValue height
     devs <-
         maybe (liftIO $ putStrLn "timed out without finding any devices!" >> exitFailure) pure . nonEmpty
-            =<< runLifx (discoverDevices devices >>= traverse (\dev -> (,dev) <$> sendMessage dev GetColor))
+            =<< runLifx
+                ( discoverDevices devices
+                    >>= traverse
+                        ( \dev ->
+                            (,dev)
+                                <$> sendMessage dev GetColor
+                        )
+                )
     let LightState{hsbk, power} = fst $ NE.head devs
     putStrLn "Found devices:"
     pPrintIndented $ NE.toList devs
     let s0 =
             AppState
                 { dimension = Nothing
-                , devices = Stream.cycle $ uncurry Device' . first (decodeUtf8 . view #label) <$> devs
+                , devices =
+                    Stream.cycle $
+                        uncurry Device'
+                            . first (decodeUtf8 . view #label)
+                            <$> devs
                 , lastError = Nothing
                 , power = power /= 0
                 , ..
