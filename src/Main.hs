@@ -93,10 +93,15 @@ data AppState = AppState
     , -- | Which axis, if any, we are currently moving.
       dimension :: Maybe ColourDimension
     , -- | All devices. Head is the active device.
-      devices :: Stream (Text, Device)
+      devices :: Stream Device'
     , windowWidth :: Float
     , windowHeight :: Float
     , lastError :: Maybe Error
+    }
+    deriving (Show, Generic)
+data Device' = Device' -- a device plus useful metadata
+    { deviceName :: Text
+    , lifxDevice :: Device
     }
     deriving (Show, Generic)
 data Error
@@ -120,7 +125,7 @@ main = do
     let s0 =
             AppState
                 { dimension = Nothing
-                , devices = Stream.cycle $ first (decodeUtf8 . view #label) <$> devs
+                , devices = Stream.cycle $ uncurry Device' . first (decodeUtf8 . view #label) <$> devs
                 , lastError = Nothing
                 , power = power /= 0
                 , ..
@@ -236,7 +241,7 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
     columnWidth = w / columns
     title =
         unwords
-            [ T.unpack (fst . streamHead $ devices)
+            [ T.unpack (deviceName . streamHead $ devices)
             , "-"
             , "LIFX"
             ]
@@ -248,7 +253,7 @@ update inc event = do
     let transform = bimap (f . (/ w)) (f . (/ h))
           where
             f = clamp (0, 1) . (+ 0.5)
-    dev <- snd . streamHead <$> use #devices
+    dev <- lifxDevice . streamHead <$> use #devices
     case event of
         EventKey (MouseButton LeftButton) Down _ (transform -> (x, y)) ->
             --TODO Fourmolu should do better here - hang the `if` or at least avoid double indenting
@@ -299,9 +304,9 @@ update inc event = do
   where
     nextDevice = do
         #devices %= Stream.tail
-        (name, dev') <- streamHead <$> use #devices
-        liftIO . T.putStrLn $ "Switching device: " <> name
-        refreshState dev'
+        Device'{..} <- streamHead <$> use #devices
+        liftIO . T.putStrLn $ "Switching device: " <> deviceName
+        refreshState lifxDevice
     updateColour dev = sendMessage dev . flip SetColor 0 =<< use #hsbk
     refreshState dev = do
         #lastError .= Nothing
