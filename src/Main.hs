@@ -276,7 +276,7 @@ update inc event = do
     let transform = bimap (f . (/ w)) (f . (/ h))
           where
             f = clamp (0, 1) . (+ 0.5)
-    dev <- lifxDevice . streamHead <$> use #devices
+    Device'{lifxDevice = dev} <- streamHead <$> use #devices
     case event of
         EventKey (MouseButton LeftButton) Down _ (transform -> (x, y)) ->
             --TODO Fourmolu should do better here - hang the `if` or at least avoid double indenting
