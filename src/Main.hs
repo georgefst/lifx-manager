@@ -138,13 +138,13 @@ main = do
                 , devices =
                     Stream.cycle $
                         devs
-                            <&> \(lightState, lifxDevice, Product{features = Features{color = supportsColour}}) ->
+                            <&> \(lightState, lifxDevice, prod) ->
                                 Device'
                                     { lifxDevice
-                                    , deviceName = decodeUtf8 $ view #label lightState
+                                    , deviceName = decodeUtf8 $ lightState ^. #label
                                     , cdSupported = \case
-                                        H -> supportsColour
-                                        S -> supportsColour
+                                        H -> prod ^. #features % #color
+                                        S -> prod ^. #features % #color
                                         B -> True
                                         K -> True
                                     }
