@@ -185,8 +185,8 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
         zipWith
             ( \md y -> translate 0 ((y - 0.5) * rectHeight) case md of
                 Just d ->
-                    let l = fromIntegral $ (cdLower $ streamHead devices) d
-                        u = fromIntegral $ (cdUpper $ streamHead devices) d
+                    let l = fromIntegral $ cdLower dev d
+                        u = fromIntegral $ cdUpper dev d
                      in pictures
                             [ -- background
                               pictures $
@@ -256,7 +256,8 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
             <> map (\y -> translate 0 (y * rectHeight) $ rectangleSolid w lineWidth) ys
             <> maybe [] (pure . color red . scale 0.2 0.2 . text . show) lastError
   where
-    cdRows = map Just (filter (cdSupported $ streamHead devices) enumerate) <> [Nothing]
+    dev = streamHead devices
+    cdRows = map Just (filter (cdSupported dev) enumerate) <> [Nothing]
     rows = fromIntegral $ length cdRows
     ys = [rows / 2, rows / 2 - 1 .. - rows / 2]
     lineWidth = min w h / lineWidthProportion
