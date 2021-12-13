@@ -58,14 +58,6 @@ cdLens = \case
     S -> #saturation
     B -> #brightness
     K -> #kelvin
-cdLower :: ColourDimension -> Word16
-cdLower = \case
-    K -> 1500
-    _ -> minBound
-cdUpper :: ColourDimension -> Word16
-cdUpper = \case
-    K -> 9000
-    _ -> maxBound
 cdFromChar :: Char -> Maybe ColourDimension
 cdFromChar = \case
     'h' -> Just H
@@ -104,6 +96,8 @@ data Device' = Device' -- a device plus useful metadata
     { lifxDevice :: Device
     , deviceName :: Text
     , cdSupported :: ColourDimension -> Bool
+    , cdLower :: ColourDimension -> Word16
+    , cdUpper :: ColourDimension -> Word16
     }
     deriving (Generic)
 data Error
@@ -147,6 +141,12 @@ main = do
                                         S -> prod ^. #features % #color
                                         B -> True
                                         K -> True
+                                    , cdLower = \case
+                                        K -> minKelvin
+                                        _ -> minBound
+                                    , cdUpper = \case
+                                        K -> maxKelvin
+                                        _ -> maxBound
                                     }
                 , lastError = Nothing
                 , power = power /= 0
@@ -185,8 +185,8 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
         zipWith
             ( \md y -> translate 0 ((y - 0.5) * rectHeight) case md of
                 Just d ->
-                    let l = fromIntegral $ cdLower d
-                        u = fromIntegral $ cdUpper d
+                    let l = fromIntegral $ (cdLower $ streamHead devices) d
+                        u = fromIntegral $ (cdUpper $ streamHead devices) d
                      in pictures
                             [ -- background
                               pictures $
@@ -273,10 +273,11 @@ update :: Word16 -> Event -> StateT AppState Lifx ()
 update inc event = do
     w <- use #windowWidth
     h <- use #windowHeight
+    dev'@Device'{lifxDevice = dev, cdLower, cdUpper} <- streamHead <$> use #devices
     let transform = bimap (f . (/ w)) (f . (/ h))
           where
             f = clamp (0, 1) . (+ 0.5)
-    Device'{lifxDevice = dev} <- streamHead <$> use #devices
+        cdInc d = (cdUpper d - cdLower d) `div` inc
     case event of
         EventKey (MouseButton LeftButton) Down _ (transform -> (x, y)) ->
             --TODO Fourmolu should do better here - hang the `if` or at least avoid double indenting
@@ -296,9 +297,9 @@ update inc event = do
           where
             setColour d = do
                 #dimension .= Just d
-                setColourFromX dev x
+                setColourFromX dev' x
         EventKey (MouseButton LeftButton) Up _ (transform -> (x, _y)) -> do
-            setColourFromX dev x
+            setColourFromX dev' x
             #dimension .= Nothing
         EventKey (MouseButton RightButton) Up _ _ ->
             togglePower dev
@@ -315,7 +316,7 @@ update inc event = do
         EventKey (SpecialKey KeyEsc) Down _ _ ->
             #dimension .= Nothing
         EventMotion (transform -> (x, _y)) ->
-            setColourFromX dev x
+            setColourFromX dev' x
         EventKey (Char 'l') Down _ _ ->
             nextDevice
         EventKey (Char 'r') Down _ _ ->
@@ -340,16 +341,15 @@ update inc event = do
         p <- not <$> use #power
         #power .= p
         sendMessage dev $ SetPower p
-    cdInc d = (cdUpper d - cdLower d) `div` inc
     setColourFromX dev x =
         use #dimension >>= \case
             Nothing -> pure ()
             Just d -> do
                 #hsbk % cdLens d .= round (u * x - l * (x - 1))
-                updateColour dev
+                updateColour $ lifxDevice dev
               where
-                l = fromIntegral $ cdLower d
-                u = fromIntegral $ cdUpper d
+                l = fromIntegral $ cdLower dev d
+                u = fromIntegral $ cdUpper dev d
 
 {- Util -}
 
@@ -372,6 +372,12 @@ invertRGB RGB{..} =
         , channelBlue = 1 - channelBlue
         }
 
+-- min, max across all devices
+minKelvin :: Num a => a
+minKelvin = 1500
+maxKelvin :: Num a => a
+maxKelvin = 9000
+
 hsbkToRgb :: HSBK -> RGB Float
 hsbkToRgb HSBK{..} =
     interpolateColour
@@ -388,8 +394,8 @@ hsbkToRgb HSBK{..} =
     -- just Kelvin
     c' =
         let t =
-                (log (fromIntegral kelvin) - log (fromIntegral $ cdLower K))
-                    / log (fromIntegral (cdUpper K) / fromIntegral (cdLower K))
+                (log (fromIntegral kelvin) - log minKelvin)
+                    / log (maxKelvin / minKelvin)
          in clamp (0, 1)
                 <$> RGB
                     { channelRed = 1
