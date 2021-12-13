@@ -101,8 +101,8 @@ data AppState = AppState
     }
     deriving (Generic)
 data Device' = Device' -- a device plus useful metadata
-    { deviceName :: Text
-    , lifxDevice :: Device
+    { lifxDevice :: Device
+    , deviceName :: Text
     , cdSupported :: ColourDimension -> Bool
     }
     deriving (Generic)
@@ -137,16 +137,17 @@ main = do
                 { dimension = Nothing
                 , devices =
                     Stream.cycle $
-                        uncurry3 Device'
-                            . first3 (decodeUtf8 . view #label)
-                            . third3
-                                ( \Product{features = Features{color = supportsColour}} -> \case
-                                    H -> supportsColour
-                                    S -> supportsColour
-                                    B -> True
-                                    K -> True
-                                )
-                            <$> devs
+                        devs
+                            <&> \(lightState, lifxDevice, Product{features = Features{color = supportsColour}}) ->
+                                Device'
+                                    { lifxDevice
+                                    , deviceName = decodeUtf8 $ view #label lightState
+                                    , cdSupported = \case
+                                        H -> supportsColour
+                                        S -> supportsColour
+                                        B -> True
+                                        K -> True
+                                    }
                 , lastError = Nothing
                 , power = power /= 0
                 , ..
