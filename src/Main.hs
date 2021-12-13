@@ -10,6 +10,7 @@ import Data.Colour.RGBSpace.HSV (hsv)
 import Data.List.Extra
 import Data.List.NonEmpty (nonEmpty)
 import Data.List.NonEmpty qualified as NE
+import Data.Maybe
 import Data.Stream.Infinite (Stream)
 import Data.Stream.Infinite qualified as Stream
 import Data.Text qualified as T
@@ -133,21 +134,24 @@ main = do
                     Stream.cycle $
                         devs
                             <&> \(lightState, lifxDevice, prod) ->
-                                Device'
-                                    { lifxDevice
-                                    , deviceName = decodeUtf8 $ lightState ^. #label
-                                    , cdSupported = \case
-                                        H -> prod ^. #features % #color
-                                        S -> prod ^. #features % #color
-                                        B -> True
-                                        K -> True
-                                    , cdLower = \case
-                                        K -> minKelvin
-                                        _ -> minBound
-                                    , cdUpper = \case
-                                        K -> maxKelvin
-                                        _ -> maxBound
-                                    }
+                                let (kelvinLower, kelvinUpper) =
+                                        fromMaybe (minKelvin, maxKelvin) $
+                                            prod ^. #features % #temperatureRange
+                                 in Device'
+                                        { lifxDevice
+                                        , deviceName = decodeUtf8 $ lightState ^. #label
+                                        , cdSupported = \case
+                                            H -> prod ^. #features % #color
+                                            S -> prod ^. #features % #color
+                                            B -> True
+                                            K -> True
+                                        , cdLower = \case
+                                            K -> kelvinLower
+                                            _ -> minBound
+                                        , cdUpper = \case
+                                            K -> kelvinUpper
+                                            _ -> maxBound
+                                        }
                 , lastError = Nothing
                 , power = power /= 0
                 , ..
