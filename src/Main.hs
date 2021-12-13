@@ -278,7 +278,7 @@ update :: Word16 -> Event -> StateT AppState Lifx ()
 update inc event = do
     w <- use #windowWidth
     h <- use #windowHeight
-    dev'@Device'{lifxDevice = dev, cdLower, cdUpper} <- streamHead <$> use #devices
+    dev'@Device'{lifxDevice = dev, cdLower, cdUpper, cdSupported} <- streamHead <$> use #devices
     let transform = bimap (f . (/ w)) (f . (/ h))
           where
             f = clamp (0, 1) . (+ 0.5)
@@ -287,12 +287,12 @@ update inc event = do
         EventKey (MouseButton LeftButton) Down _ (transform -> (x, y)) ->
             --TODO Fourmolu should do better here - hang the `if` or at least avoid double indenting
             if
-                    | y > 1.00 -> #lastError .= Just (OutOfRangeY y)
-                    | y > 0.80 -> setColour H
-                    | y > 0.60 -> setColour S
-                    | y > 0.40 -> setColour B
-                    | y > 0.20 -> setColour K
-                    | y >= 0.00 ->
+                    | y > 5 / rows -> #lastError .= Just (OutOfRangeY y)
+                    | y > 4 / rows -> setColour H
+                    | y > 3 / rows -> setColour S
+                    | y > 2 / rows -> setColour B
+                    | y > 1 / rows -> setColour K
+                    | y >= 0 ->
                         if
                                 | x > 1.0 -> #lastError .= Just (OutOfRangeX x)
                                 | x > 0.5 -> nextDevice
@@ -300,6 +300,7 @@ update inc event = do
                                 | otherwise -> #lastError .= Just (OutOfRangeX x)
                     | otherwise -> #lastError .= Just (OutOfRangeY y)
           where
+            rows = genericLength (filter cdSupported enumerate) + 1
             setColour d = do
                 #dimension .= Just d
                 setColourFromX dev' x
