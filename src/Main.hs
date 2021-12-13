@@ -250,12 +250,13 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
                   where
                     w' = w / 2
             )
-            (map Just (filter (cdSupported $ streamHead devices) enumerate) <> [Nothing])
+            cdRows
             ys
             <> map (\y -> translate 0 (y * rectHeight) $ rectangleSolid w lineWidth) ys
             <> maybe [] (pure . color red . scale 0.2 0.2 . text . show) lastError
   where
-    rows = 5
+    cdRows = map Just (filter (cdSupported $ streamHead devices) enumerate) <> [Nothing]
+    rows = fromIntegral $ length cdRows
     ys = [rows / 2, rows / 2 - 1 .. - rows / 2]
     lineWidth = min w h / lineWidthProportion
     rectHeight = h / rows
