@@ -21,9 +21,10 @@ import Graphics.Gloss
 import Graphics.Gloss.Interface.Environment
 import Graphics.Gloss.Interface.IO.Interact
 import Lifx.Lan hiding (color) --TODO hiding will be unnecessary with RecordDotSyntax
+import Lifx.Lan qualified --TODO won't be necessary with RecordDotSyntac
 import Optics hiding (both)
 import Optics.State.Operators
-import Options.Generic
+import Options.Generic hiding (Product)
 import System.Exit
 import Text.Pretty.Simple hiding (Color)
 import Util.Gloss
@@ -98,12 +99,13 @@ data AppState = AppState
     , windowHeight :: Float
     , lastError :: Maybe Error
     }
-    deriving (Show, Generic)
+    deriving (Generic)
 data Device' = Device' -- a device plus useful metadata
     { deviceName :: Text
     , lifxDevice :: Device
+    , cdSupported :: ColourDimension -> Bool
     }
-    deriving (Show, Generic)
+    deriving (Generic)
 data Error
     = LifxError LifxError
     | OutOfRangeX Float
@@ -122,11 +124,12 @@ main = do
                 ( discoverDevices devices
                     >>= traverse
                         ( \dev ->
-                            (,dev)
+                            (,dev,)
                                 <$> sendMessage dev GetColor
+                                <*> getProductInfo dev
                         )
                 )
-    let LightState{hsbk, power} = fst $ NE.head devs
+    let LightState{hsbk, power} = fst3 $ NE.head devs
     putStrLn "Found devices:"
     pPrintIndented $ NE.toList devs
     let s0 =
@@ -134,8 +137,15 @@ main = do
                 { dimension = Nothing
                 , devices =
                     Stream.cycle $
-                        uncurry Device'
-                            . first (decodeUtf8 . view #label)
+                        uncurry3 Device'
+                            . first3 (decodeUtf8 . view #label)
+                            . third3
+                                ( \Product{features = Features{color = supportsColour}} -> \case
+                                    H -> supportsColour
+                                    S -> supportsColour
+                                    B -> True
+                                    K -> True
+                                )
                             <$> devs
                 , lastError = Nothing
                 , power = power /= 0
@@ -240,7 +250,7 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
                   where
                     w' = w / 2
             )
-            (map Just enumerate <> [Nothing])
+            (map Just (filter (cdSupported $ streamHead devices) enumerate) <> [Nothing])
             ys
             <> map (\y -> translate 0 (y * rectHeight) $ rectangleSolid w lineWidth) ys
             <> maybe [] (pure . color red . scale 0.2 0.2 . text . show) lastError
