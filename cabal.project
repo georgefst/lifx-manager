@@ -1,7 +1,6 @@
 packages: .
 
 --TODO dynamically set title: https://github.com/benl23x5/gloss/pull/48
---TODO open a PR for the "lift" change as well
 source-repository-package
     type: git
     location: https://github.com/georgefst/gloss
