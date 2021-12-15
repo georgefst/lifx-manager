@@ -363,7 +363,7 @@ update inc event = do
 setLifxWindowIcon :: IO ()
 setLifxWindowIcon = do
     Just (w, _) <- find (("LIFX" `T.isSuffixOf`) . snd) <$> getWindows
-    setIcon w $ [16, 16] ++ replicate (16 * 16) 0xffffffff9010a0f0
+    setIconJuicy w "/home/gthomas/.local/share/icons/lifx.png"
 
 clamp :: (Ord a) => (a, a) -> a -> a
 clamp (l, u) = max l . min u

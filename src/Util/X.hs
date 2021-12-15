@@ -1,12 +1,17 @@
 module Util.X where
 
+import Codec.Picture
+import Data.Bits
 import Data.ByteString qualified as BS
 import Data.Text (Text)
 import Data.Text.Encoding
 import Data.Traversable
+import Data.Vector.Storable qualified as Vec
+import Data.Word
 import Foreign.C
 import Graphics.X11
 import Graphics.X11.Xlib.Extras
+import Unsafe.Coerce
 
 getWindows :: IO [(Window, Text)]
 getWindows = do
@@ -34,3 +39,26 @@ setIcon w x = do
     netWmIcon <- internAtom d "_NET_WM_ICON" True
     changeProperty32 d w netWmIcon cARDINAL propModeReplace x
     flush d
+
+setIconJuicy :: Window -> FilePath -> IO ()
+setIconJuicy w path = do
+    contents <- BS.readFile path
+    case decodePng contents of
+        Left e -> error e
+        Right (ImageRGBA8 Image{..}) ->
+            setIcon w $
+                map fromIntegral [imageWidth, imageHeight]
+                    ++ map unsafeCoerce (groupPixels $ Vec.toList imageData)
+          where
+            groupPixels :: [Word8] -> [Word64]
+            groupPixels = \case
+                r : g : b : a : ps ->
+                    ( shift (unsafeCoerce a) 24
+                        .|. shift (unsafeCoerce r) 16
+                        .|. shift (unsafeCoerce g) 8
+                        .|. shift (unsafeCoerce b) 0
+                    ) :
+                    groupPixels ps
+                [] -> []
+                _ -> error "vector length not a multiple of 4"
+        _ -> error "wrong pixel type"
