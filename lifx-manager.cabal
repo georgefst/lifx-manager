@@ -8,6 +8,7 @@ maintainer:         georgefsthomas@gmail.com
 executable lifx-manager
     main-is: Main.hs
     other-modules:
+        Embed
         Util.Gloss
         Util.X
     hs-source-dirs: src
@@ -22,6 +23,7 @@ executable lifx-manager
         composition ^>= 1.0.2.1,
         containers ^>= 0.6.2.1,
         extra ^>= 1.7.1,
+        file-embed ^>= 0.0.15,
         gloss ^>= 1.13.2,
         JuicyPixels ^>= 3.3.6,
         lifx-lan ^>= 0.5.1.1,

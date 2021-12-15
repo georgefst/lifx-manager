@@ -18,6 +18,7 @@ import Data.Text.Encoding (decodeUtf8)
 import Data.Text.IO qualified as T
 import Data.Tuple.Extra hiding (first)
 import Data.Word
+import Embed
 import Graphics.Gloss
 import Graphics.Gloss.Interface.Environment
 import Graphics.Gloss.Interface.IO.Interact
@@ -363,7 +364,7 @@ update inc event = do
 setLifxWindowIcon :: IO ()
 setLifxWindowIcon = do
     Just (w, _) <- find (("LIFX" `T.isSuffixOf`) . snd) <$> getWindows
-    setIconJuicy w "/home/gthomas/.local/share/icons/lifx.png"
+    setIconJuicy w lifxLogo
 
 clamp :: (Ord a) => (a, a) -> a -> a
 clamp (l, u) = max l . min u

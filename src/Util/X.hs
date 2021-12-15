@@ -2,6 +2,7 @@ module Util.X where
 
 import Codec.Picture
 import Data.Bits
+import Data.ByteString (ByteString)
 import Data.ByteString qualified as BS
 import Data.Text (Text)
 import Data.Text.Encoding
@@ -40,10 +41,9 @@ setIcon w x = do
     changeProperty32 d w netWmIcon cARDINAL propModeReplace x
     flush d
 
-setIconJuicy :: Window -> FilePath -> IO ()
-setIconJuicy w path = do
-    contents <- BS.readFile path
-    case decodePng contents of
+setIconJuicy :: Window -> ByteString -> IO ()
+setIconJuicy w bs =
+    case decodePng bs of
         Left e -> error e
         Right (ImageRGBA8 Image{..}) ->
             setIcon w $
