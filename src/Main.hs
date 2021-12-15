@@ -29,6 +29,7 @@ import Options.Generic hiding (Product)
 import System.Exit
 import Text.Pretty.Simple hiding (Color)
 import Util.Gloss
+import Util.X
 
 data Opts = Opts
     { -- | 0 to 1
@@ -181,7 +182,7 @@ main = do
                     )
                     pure
                 )
-                mempty
+                (const setLifxWindowIcon)
 
 render :: Float -> Int -> AppState -> (Picture, String)
 render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, windowHeight = h, ..} =
@@ -358,6 +359,11 @@ update inc event = do
                 u = fromIntegral $ cdUpper dev d
 
 {- Util -}
+
+setLifxWindowIcon :: IO ()
+setLifxWindowIcon = do
+    Just (w, _) <- find (("LIFX" `T.isSuffixOf`) . snd) <$> getWindows
+    setIcon w $ [16, 16] ++ replicate (16 * 16) 0xffffffff9010a0f0
 
 clamp :: (Ord a) => (a, a) -> a -> a
 clamp (l, u) = max l . min u
