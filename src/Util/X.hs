@@ -2,10 +2,11 @@ module Util.X (setWindowIcon) where
 
 import Codec.Picture
 import Data.Bits
-import Data.List
 import Data.ByteString (ByteString)
 import Data.ByteString qualified as BS
+import Data.List
 import Data.Text (Text)
+import Data.Text qualified as T
 import Data.Text.Encoding
 import Data.Traversable
 import Data.Vector.Storable qualified as Vec
@@ -37,13 +38,6 @@ getName w = do
     d <- openDisplay ""
     Just cs <- getWindowProperty8 d wM_NAME w
     pure . decodeUtf8 . BS.pack $ map fromIntegral cs
-
-getIcon :: Window -> IO [CLong]
-getIcon w = do
-    d <- openDisplay ""
-    netWmIcon <- internAtom d "_NET_WM_ICON" True
-    Just x <- getWindowProperty32 d netWmIcon w
-    pure x
 
 setIcon :: Window -> [CLong] -> IO ()
 setIcon w x = do
