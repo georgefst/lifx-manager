@@ -183,7 +183,7 @@ main = do
                     )
                     pure
                 )
-                (const setLifxWindowIcon)
+                (const $ setWindowIcon "LIFX" lifxLogo)
 
 render :: Float -> Int -> AppState -> (Picture, String)
 render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, windowHeight = h, ..} =
@@ -360,11 +360,6 @@ update inc event = do
                 u = fromIntegral $ cdUpper dev d
 
 {- Util -}
-
-setLifxWindowIcon :: IO ()
-setLifxWindowIcon = do
-    Just (w, _) <- find (("LIFX" `T.isSuffixOf`) . snd) <$> getWindows
-    setIconJuicy w lifxLogo
 
 clamp :: (Ord a) => (a, a) -> a -> a
 clamp (l, u) = max l . min u

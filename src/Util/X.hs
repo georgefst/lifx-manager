@@ -1,7 +1,8 @@
-module Util.X where
+module Util.X (setWindowIcon) where
 
 import Codec.Picture
 import Data.Bits
+import Data.List
 import Data.ByteString (ByteString)
 import Data.ByteString qualified as BS
 import Data.Text (Text)
@@ -13,6 +14,16 @@ import Foreign.C
 import Graphics.X11
 import Graphics.X11.Xlib.Extras
 import Unsafe.Coerce
+
+setWindowIcon ::
+    -- | substring which must appear in the window title
+    Text ->
+    -- | PNG image
+    ByteString ->
+    IO ()
+setWindowIcon name img = do
+    Just (w, _) <- find ((name `T.isInfixOf`) . snd) <$> getWindows
+    setIconJuicy w img
 
 getWindows :: IO [(Window, Text)]
 getWindows = do
