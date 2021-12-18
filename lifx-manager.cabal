@@ -16,11 +16,17 @@ executable lifx-manager
         -Wall
         -threaded
     if os(windows)
+        other-modules:
+            Util.Window.Win32
+        cpp-options:
+            -DWIN=Win32
         build-depends:
             Win32 ^>= 2.6.2,
-        cpp-options:
-            -DWin32
     else
+        other-modules:
+            Util.Window.X11
+        cpp-options:
+            -DWIN=X11
         build-depends:
             X11 ^>= 1.10.2,
     build-depends:
