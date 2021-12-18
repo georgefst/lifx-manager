@@ -1,6 +1,6 @@
 {-# LANGUAGE CPP #-}
 
-module Util.Icon (setWindowIcon) where
+module Util.Window (setWindowIcon) where
 
 #if defined(NO_X)
 

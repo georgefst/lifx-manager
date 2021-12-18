@@ -10,7 +10,7 @@ executable lifx-manager
     other-modules:
         Embed
         Util.Gloss
-        Util.Icon
+        Util.Window
     hs-source-dirs: src
     ghc-options:
         -Wall

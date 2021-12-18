@@ -30,7 +30,7 @@ import Options.Generic hiding (Product)
 import System.Exit
 import Text.Pretty.Simple hiding (Color)
 import Util.Gloss
-import Util.Icon
+import Util.Window
 
 data Opts = Opts
     { -- | 0 to 1
