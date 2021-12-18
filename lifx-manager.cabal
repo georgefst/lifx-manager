@@ -16,12 +16,12 @@ executable lifx-manager
         -Wall
         -threaded
     if os(windows)
-        build-depends: 
+        build-depends:
             Win32 ^>= 2.6.2,
         cpp-options:
             -DNO_X
     else
-        build-depends: 
+        build-depends:
             X11 ^>= 1.10.2,
     build-depends:
         base >= 4.14,
