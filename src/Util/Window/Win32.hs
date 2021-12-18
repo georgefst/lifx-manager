@@ -1,4 +1,8 @@
-module Util.Window.Win32 (setWindowIcon) where
+module Util.Window.Win32 (
+    Window, -- it's important that the implementation is hidden here, since it will vary between platforms
+    findByName,
+    setIcon,
+) where
 
 import Codec.Picture
 import Control.Monad
@@ -11,27 +15,34 @@ import Foreign.Ptr
 import Graphics.Win32
 import Unsafe.Coerce
 
-setWindowIcon ::
+newtype Window = Window HWND
+
+findByName ::
     -- | substring which must appear in the window title
     Text ->
+    IO Window
+findByName name = do
+    Just w <- findWindow Nothing . Just $ T.unpack name
+    pure $ Window w
+
+setIcon ::
+    Window ->
     -- | PNG image
     ByteString ->
     IO ()
-setWindowIcon name img = do
-    Just hWnd <- findWindow Nothing . Just $ T.unpack name
-    case decodePng img of
-        Left e -> error e
-        Right (ImageRGBA8 Image{..}) -> do
-            let bs = BS.pack . reorderPixels $ Vec.toList imageData
-            icon <- useAsCString bs $ createIcon nullPtr imageWidth imageHeight 1 32 nullPtr . castPtr
-            void $ sendMessage hWnd wM_SETICON iCON_BIG $ unsafeCoerce icon
-          where
-            reorderPixels = \case
-                r : g : b : a : ps ->
-                    b : g : r : a : reorderPixels ps
-                [] -> []
-                _ -> error "vector length not a multiple of 4"
-        _ -> error "wrong pixel type"
+setIcon (Window w) img = case decodePng img of
+    Left e -> error e
+    Right (ImageRGBA8 Image{..}) -> do
+        let bs = BS.pack . reorderPixels $ Vec.toList imageData
+        icon <- useAsCString bs $ createIcon nullPtr imageWidth imageHeight 1 32 nullPtr . castPtr
+        void $ sendMessage w wM_SETICON iCON_BIG $ unsafeCoerce icon
+      where
+        reorderPixels = \case
+            r : g : b : a : ps ->
+                b : g : r : a : reorderPixels ps
+            [] -> []
+            _ -> error "vector length not a multiple of 4"
+    _ -> error "wrong pixel type"
 
 --TODO these should all be upstreamed to Win32
 {- HLINT ignore "Use camelCase" -}

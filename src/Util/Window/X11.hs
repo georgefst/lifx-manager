@@ -1,4 +1,8 @@
-module Util.Window.X11 (setWindowIcon) where
+module Util.Window.X11 (
+    Window, -- it's important that the implementation is hidden here, since it will vary between platforms
+    findByName,
+    setIcon,
+) where
 
 import Codec.Picture
 import Data.Bits
@@ -11,25 +15,42 @@ import Data.Text.Encoding
 import Data.Traversable
 import Data.Vector.Storable qualified as Vec
 import Data.Word
-import Foreign.C
-import Graphics.X11
+import Graphics.X11 hiding (Window)
+import Graphics.X11 qualified as X11
 import Graphics.X11.Xlib.Extras
 import Unsafe.Coerce
 
-setWindowIcon ::
+newtype Window = Window X11.Window
+
+findByName ::
     -- | substring which must appear in the window title
     Text ->
+    IO Window
+findByName name = do
+    Just (w, _) <- do
+        d <- openDisplay ""
+        netClientList <- internAtom d "_NET_CLIENT_LIST" True
+        Just ids <- getWindowProperty32 d netClientList (defaultRootWindow d)
+        find ((name `T.isInfixOf`) . snd) <$> for ids \(fromIntegral -> i) -> do
+            Just cs <- getWindowProperty8 d wM_NAME i
+            pure (i, decodeLatin1 . BS.pack $ map fromIntegral cs)
+    pure $ Window w
+
+setIcon ::
+    Window ->
     -- | PNG image
     ByteString ->
     IO ()
-setWindowIcon name img = do
-    Just (w, _) <- find ((name `T.isInfixOf`) . snd) <$> getWindows
+setIcon (Window w) img = do
     case decodePng img of
         Left e -> error e
-        Right (ImageRGBA8 Image{..}) ->
-            setIcon w $
+        Right (ImageRGBA8 Image{..}) -> do
+            d <- openDisplay ""
+            netWmIcon <- internAtom d "_NET_WM_ICON" True
+            changeProperty32 d w netWmIcon cARDINAL propModeReplace $
                 map fromIntegral [imageWidth, imageHeight]
                     ++ map unsafeCoerce (groupPixels $ Vec.toList imageData)
+            flush d
           where
             groupPixels :: [Word8] -> [Word64]
             groupPixels = \case
@@ -43,23 +64,3 @@ setWindowIcon name img = do
                 [] -> []
                 _ -> error "vector length not a multiple of 4"
         _ -> error "wrong pixel type"
-
-getWindows :: IO [(Window, Text)]
-getWindows = do
-    d <- openDisplay ""
-    netClientList <- internAtom d "_NET_CLIENT_LIST" True
-    Just ids <- getWindowProperty32 d netClientList (defaultRootWindow d)
-    for ids \(fromIntegral -> i) -> (i,) <$> getName i
-
-getName :: Window -> IO Text
-getName w = do
-    d <- openDisplay ""
-    Just cs <- getWindowProperty8 d wM_NAME w
-    pure . decodeLatin1 . BS.pack $ map fromIntegral cs
-
-setIcon :: Window -> [CLong] -> IO ()
-setIcon w x = do
-    d <- openDisplay ""
-    netWmIcon <- internAtom d "_NET_WM_ICON" True
-    changeProperty32 d w netWmIcon cARDINAL propModeReplace x
-    flush d

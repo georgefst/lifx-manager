@@ -30,7 +30,7 @@ import Options.Generic hiding (Product)
 import System.Exit
 import Text.Pretty.Simple hiding (Color)
 import Util.Gloss
-import Util.Window
+import Util.Window qualified as Window
 
 data Opts = Opts
     { -- | 0 to 1
@@ -183,7 +183,7 @@ main = do
                     )
                     pure
                 )
-                (const $ setWindowIcon "LIFX" lifxLogo)
+                (const $ flip Window.setIcon lifxLogo =<< Window.findByName "LIFX")
 
 render :: Float -> Int -> AppState -> (Picture, String)
 render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, windowHeight = h, ..} =
