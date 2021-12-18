@@ -106,7 +106,7 @@ getName :: Window -> IO Text
 getName w = do
     d <- openDisplay ""
     Just cs <- getWindowProperty8 d wM_NAME w
-    pure . decodeUtf8 . BS.pack $ map fromIntegral cs
+    pure . decodeLatin1 . BS.pack $ map fromIntegral cs
 
 setIcon :: Window -> [CLong] -> IO ()
 setIcon w x = do
