@@ -19,7 +19,7 @@ executable lifx-manager
         build-depends:
             Win32 ^>= 2.6.2,
         cpp-options:
-            -DNO_X
+            -DWin32
     else
         build-depends:
             X11 ^>= 1.10.2,

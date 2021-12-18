@@ -2,7 +2,7 @@
 
 module Util.Window (setWindowIcon) where
 
-#if defined(NO_X)
+#if defined(Win32)
 
 import Codec.Picture
 import Control.Monad
