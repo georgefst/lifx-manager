@@ -24,7 +24,25 @@ setWindowIcon ::
     IO ()
 setWindowIcon name img = do
     Just (w, _) <- find ((name `T.isInfixOf`) . snd) <$> getWindows
-    setIconJuicy w img
+    case decodePng img of
+        Left e -> error e
+        Right (ImageRGBA8 Image{..}) ->
+            setIcon w $
+                map fromIntegral [imageWidth, imageHeight]
+                    ++ map unsafeCoerce (groupPixels $ Vec.toList imageData)
+          where
+            groupPixels :: [Word8] -> [Word64]
+            groupPixels = \case
+                r : g : b : a : ps ->
+                    ( shift (unsafeCoerce a) 24
+                        .|. shift (unsafeCoerce r) 16
+                        .|. shift (unsafeCoerce g) 8
+                        .|. shift (unsafeCoerce b) 0
+                    ) :
+                    groupPixels ps
+                [] -> []
+                _ -> error "vector length not a multiple of 4"
+        _ -> error "wrong pixel type"
 
 getWindows :: IO [(Window, Text)]
 getWindows = do
@@ -45,25 +63,3 @@ setIcon w x = do
     netWmIcon <- internAtom d "_NET_WM_ICON" True
     changeProperty32 d w netWmIcon cARDINAL propModeReplace x
     flush d
-
-setIconJuicy :: Window -> ByteString -> IO ()
-setIconJuicy w bs =
-    case decodePng bs of
-        Left e -> error e
-        Right (ImageRGBA8 Image{..}) ->
-            setIcon w $
-                map fromIntegral [imageWidth, imageHeight]
-                    ++ map unsafeCoerce (groupPixels $ Vec.toList imageData)
-          where
-            groupPixels :: [Word8] -> [Word64]
-            groupPixels = \case
-                r : g : b : a : ps ->
-                    ( shift (unsafeCoerce a) 24
-                        .|. shift (unsafeCoerce r) 16
-                        .|. shift (unsafeCoerce g) 8
-                        .|. shift (unsafeCoerce b) 0
-                    ) :
-                    groupPixels ps
-                [] -> []
-                _ -> error "vector length not a multiple of 4"
-        _ -> error "wrong pixel type"
