@@ -1,6 +1,7 @@
 module Main (main) where
 
 import Control.Applicative
+import Control.Concurrent
 import Control.Monad.Except
 import Control.Monad.State
 import Data.Bifunctor
@@ -28,6 +29,7 @@ import Optics hiding (both)
 import Optics.State.Operators
 import Options.Generic hiding (Product)
 import System.Exit
+import System.Timeout
 import Text.Pretty.Simple hiding (Color)
 import Util.Gloss
 import Util.Window qualified as Window
@@ -93,6 +95,7 @@ data AppState = AppState
     , windowWidth :: Float
     , windowHeight :: Float
     , lastError :: Maybe Error
+    , window :: MVar Window.Window -- MVar wrapper is due to the fact we can't get this before initialising Gloss
     }
     deriving (Generic)
 data Device' = Device' -- a device plus useful metadata
@@ -129,6 +132,7 @@ main = do
     let LightState{hsbk, power} = fst3 $ NE.head devs
     putStrLn "Found devices:"
     pPrintIndented $ NE.toList devs
+    window <- newEmptyMVar
     let s0 =
             AppState
                 { dimension = Nothing
@@ -171,8 +175,7 @@ main = do
                     )
                 )
                 white
-                ( pure
-                    . render (unDefValue lineWidthProportion) (unDefValue columns)
+                ( render (unDefValue lineWidthProportion) (unDefValue columns)
                     . snd
                 )
                 (coerce update (unDefValue inc))
@@ -183,11 +186,17 @@ main = do
                     )
                     pure
                 )
-                (const $ flip Window.setIcon lifxLogo =<< Window.findByName "LIFX")
+                ( const do
+                    w <- Window.findByName "LIFX"
+                    Window.setIcon w lifxLogo
+                    putMVar window w
+                )
 
-render :: Float -> Int -> AppState -> (Picture, String)
-render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, windowHeight = h, ..} =
-    (,title) . pictures $
+render :: Float -> Int -> AppState -> IO Picture
+render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, windowHeight = h, ..} = do
+    win <- maybe (putStrLn "Initialisation failure" >> exitFailure) pure =<< timeout 1_000_000 (readMVar window)
+    Window.setName win title
+    pure . pictures $
         zipWith
             ( \md y -> translate 0 ((y - 0.5) * rectHeight) case md of
                 Just d ->
@@ -270,8 +279,8 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
     rectHeight = h / rows
     columnWidth = w / columns
     title =
-        unwords
-            [ T.unpack (deviceName . streamHead $ devices)
+        T.unwords
+            [ deviceName . streamHead $ devices
             , "-"
             , "LIFX"
             ]

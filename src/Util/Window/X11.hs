@@ -1,6 +1,7 @@
 module Util.Window.X11 (
     Window, -- it's important that the implementation is hidden here, since it will vary between platforms
     findByName,
+    setName,
     setIcon,
 ) where
 
@@ -21,6 +22,7 @@ import Graphics.X11.Xlib.Extras
 import Unsafe.Coerce
 
 newtype Window = Window X11.Window
+    deriving (Eq, Ord)
 
 findByName ::
     -- | substring which must appear in the window title
@@ -35,6 +37,14 @@ findByName name = do
             Just cs <- getWindowProperty8 d wM_NAME i
             pure (i, decodeLatin1 . BS.pack $ map fromIntegral cs)
     pure $ Window w
+
+setName :: Window -> Text -> IO ()
+setName (Window w) t = do
+    d <- openDisplay ""
+    netWmName <- internAtom d "_NET_WM_NAME" True
+    utf8String <- internAtom d "UTF8_STRING" True
+    changeProperty8 d w netWmName utf8String propModeReplace . map fromIntegral . BS.unpack $ encodeUtf8 t
+    flush d
 
 setIcon ::
     Window ->

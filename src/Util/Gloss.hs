@@ -65,7 +65,7 @@ interactM ::
     MonadGloss m =>
     Display ->
     Color ->
-    (World m -> IO (Picture, String)) ->
+    (World m -> IO Picture) ->
     (Event -> m ()) ->
     -- | Handle errors.
     (Error m -> m ()) ->
