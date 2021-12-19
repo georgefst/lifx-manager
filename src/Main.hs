@@ -113,7 +113,7 @@ data Error
     deriving (Show)
 
 initialWindowName :: Text
-initialWindowName = "LIFX"
+initialWindowName = "Haskell LIFX Manager (Initialising)"
 
 main :: IO ()
 main = do
