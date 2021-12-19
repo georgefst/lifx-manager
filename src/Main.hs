@@ -112,6 +112,9 @@ data Error
     | OutOfRangeY Float
     deriving (Show)
 
+initialWindowName :: Text
+initialWindowName = "LIFX"
+
 main :: IO ()
 main = do
     Opts{..} <- getRecord "LIFX"
@@ -166,7 +169,7 @@ main = do
         flip evalStateT s0 $
             interactM
                 ( InWindow
-                    "LIFX"
+                    (T.unpack initialWindowName)
                     ( round windowWidth
                     , round windowHeight
                     )
@@ -187,7 +190,7 @@ main = do
                     pure
                 )
                 ( const do
-                    w <- Window.findByName "LIFX"
+                    w <- Window.findByName initialWindowName
                     Window.setIcon w lifxLogo
                     putMVar window w
                 )
