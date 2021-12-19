@@ -180,9 +180,7 @@ main = do
                     )
                 )
                 white
-                ( render (unDefValue lineWidthProportion) (unDefValue columns)
-                    . snd
-                )
+                (render (unDefValue lineWidthProportion) (unDefValue columns) . snd)
                 (coerce update (unDefValue inc))
                 ( either
                     ( \e -> do
