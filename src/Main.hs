@@ -112,8 +112,9 @@ data Error
     | OutOfRangeY Float
     deriving (Show)
 
--- | The value of this really doesn't matter since it gets overwritten near-instantly at startup.
--- But, since we use `Window.findByName`, we should try to make sure other windows are unlikely to share it.
+{- | The value of this really doesn't matter since it gets overwritten near-instantly at startup.
+But, since we use `Window.findByName`, we should try to make sure other windows are unlikely to share it.
+-}
 initialWindowName :: Text
 initialWindowName = "Haskell LIFX Manager (Initialising)"
 
