@@ -21,7 +21,7 @@ import Graphics.X11 qualified as X11
 import Graphics.X11.Xlib.Extras
 import Unsafe.Coerce
 
-newtype Window = Window X11.Window
+data Window = Window X11.Window Display
     deriving (Eq, Ord)
 
 findByName ::
@@ -29,18 +29,17 @@ findByName ::
     Text ->
     IO Window
 findByName name = do
+    d <- openDisplay ""
     Just (w, _) <- do
-        d <- openDisplay ""
         netClientList <- internAtom d "_NET_CLIENT_LIST" True
         Just ids <- getWindowProperty32 d netClientList (defaultRootWindow d)
         find ((name `T.isInfixOf`) . snd) <$> for ids \(fromIntegral -> i) -> do
             Just cs <- getWindowProperty8 d wM_NAME i
             pure (i, decodeLatin1 . BS.pack $ map fromIntegral cs)
-    pure $ Window w
+    pure $ Window w d
 
 setName :: Window -> Text -> IO ()
-setName (Window w) t = do
-    d <- openDisplay ""
+setName (Window w d) t = do
     netWmName <- internAtom d "_NET_WM_NAME" True
     utf8String <- internAtom d "UTF8_STRING" True
     changeProperty8 d w netWmName utf8String propModeReplace . map fromIntegral . BS.unpack $ encodeUtf8 t
@@ -51,11 +50,10 @@ setIcon ::
     -- | PNG image
     ByteString ->
     IO ()
-setIcon (Window w) img = do
+setIcon (Window w d) img = do
     case decodePng img of
         Left e -> error e
         Right (ImageRGBA8 Image{..}) -> do
-            d <- openDisplay ""
             netWmIcon <- internAtom d "_NET_WM_ICON" True
             changeProperty32 d w netWmIcon cARDINAL propModeReplace $
                 map fromIntegral [imageWidth, imageHeight]
