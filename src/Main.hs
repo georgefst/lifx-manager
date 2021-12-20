@@ -116,7 +116,7 @@ data Error
 But, since we use `Window.findByName`, we should try to make sure other windows are unlikely to share it.
 -}
 initialWindowName :: Text
-initialWindowName = "Haskell LIFX Manager (Initialising)"
+initialWindowName = "Haskell LIFX Manager"
 
 setWindowTitle :: Window.Window -> Device' -> IO ()
 setWindowTitle w Device'{deviceName} =
