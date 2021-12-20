@@ -118,6 +118,15 @@ But, since we use `Window.findByName`, we should try to make sure other windows 
 initialWindowName :: Text
 initialWindowName = "Haskell LIFX Manager (Initialising)"
 
+setWindowTitle :: Window.Window -> Device' -> IO ()
+setWindowTitle w Device'{deviceName} =
+    Window.setName w $
+        T.unwords
+            [ deviceName
+            , "-"
+            , "LIFX"
+            ]
+
 main :: IO ()
 main = do
     Opts{..} <- getRecord "LIFX"
@@ -193,13 +202,12 @@ main = do
                 ( const do
                     w <- Window.findByName initialWindowName
                     Window.setIcon w lifxLogo
+                    setWindowTitle w $ streamHead (s0 & \AppState{devices = ds} -> ds) --TODO RecordDotSyntax
                     putMVar window w
                 )
 
 render :: Float -> Int -> AppState -> IO Picture
 render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, windowHeight = h, ..} = do
-    win <- maybe (putStrLn "Initialisation failure" >> exitFailure) pure =<< timeout 1_000_000 (readMVar window)
-    Window.setName win title
     pure . pictures $
         zipWith
             ( \md y -> translate 0 ((y - 0.5) * rectHeight) case md of
@@ -282,12 +290,6 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
     lineWidth = min w h / lineWidthProportion
     rectHeight = h / rows
     columnWidth = w / columns
-    title =
-        T.unwords
-            [ deviceName . streamHead $ devices
-            , "-"
-            , "LIFX"
-            ]
 
 update :: Word16 -> Event -> StateT AppState Lifx ()
 update inc event = do
@@ -349,8 +351,12 @@ update inc event = do
   where
     nextDevice = do
         #devices %= Stream.tail
-        Device'{..} <- streamHead <$> use #devices
-        liftIO . T.putStrLn $ "Switching device: " <> deviceName
+        dev'@Device'{..} <- streamHead <$> use #devices
+        winMVar <- use #window
+        liftIO do
+            T.putStrLn $ "Switching device: " <> deviceName
+            w <- maybe (putStrLn "Initialisation failure" >> exitFailure) pure =<< timeout 1_000_000 (readMVar winMVar)
+            setWindowTitle w dev'
         refreshState lifxDevice
     updateColour dev = sendMessage dev . flip SetColor 0 =<< use #hsbk
     refreshState dev = do

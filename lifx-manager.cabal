@@ -75,6 +75,7 @@ executable lifx-manager
         MultiParamTypeClasses
         MultiWayIf
         NamedFieldPuns
+        NoMonomorphismRestriction
         NumericUnderscores
         OverloadedLabels
         OverloadedStrings
