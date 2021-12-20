@@ -1,6 +1,7 @@
 module Util.Window.Win32 (
     Window, -- it's important that the implementation is hidden here, since it will vary between platforms
     findByName,
+    setTitle,
     setIcon,
 ) where
 
@@ -24,6 +25,9 @@ findByName ::
 findByName name = do
     Just w <- findWindow Nothing . Just $ T.unpack name
     pure $ Window w
+
+setTitle :: Window -> Text -> IO ()
+setTitle (Window w) t = setWindowText w $ T.unpack t
 
 setIcon ::
     Window ->
