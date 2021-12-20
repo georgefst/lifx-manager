@@ -120,7 +120,7 @@ initialWindowName = "Haskell LIFX Manager (Initialising)"
 
 setWindowTitle :: Window.Window -> Device' -> IO ()
 setWindowTitle w Device'{deviceName} =
-    Window.setName w $
+    Window.setTitle w $
         T.unwords
             [ deviceName
             , "-"

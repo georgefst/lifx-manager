@@ -1,7 +1,7 @@
 module Util.Window.X11 (
     Window, -- it's important that the implementation is hidden here, since it will vary between platforms
     findByName,
-    setName,
+    setTitle,
     setIcon,
 ) where
 
@@ -38,8 +38,8 @@ findByName name = do
             pure (i, decodeLatin1 . BS.pack $ map fromIntegral cs)
     pure $ Window w d
 
-setName :: Window -> Text -> IO ()
-setName (Window w d) t = do
+setTitle :: Window -> Text -> IO ()
+setTitle (Window w d) t = do
     netWmName <- internAtom d "_NET_WM_NAME" True
     utf8String <- internAtom d "UTF8_STRING" True
     changeProperty8 d w netWmName utf8String propModeReplace . map fromIntegral . BS.unpack $ encodeUtf8 t
