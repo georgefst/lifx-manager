@@ -31,8 +31,8 @@ findByName ::
 findByName name = do
     d <- openDisplay ""
     Just (w, _) <- do
-        netClientList <- internAtom d "_NET_CLIENT_LIST" True
-        Just ids <- getWindowProperty32 d netClientList (defaultRootWindow d)
+        nET_CLIENT_LIST <- internAtom d "_NET_CLIENT_LIST" True
+        Just ids <- getWindowProperty32 d nET_CLIENT_LIST (defaultRootWindow d)
         find ((name `T.isInfixOf`) . snd) <$> for ids \(fromIntegral -> i) -> do
             Just cs <- getWindowProperty8 d wM_NAME i
             pure (i, decodeLatin1 . BS.pack $ map fromIntegral cs)
@@ -40,9 +40,9 @@ findByName name = do
 
 setTitle :: Window -> Text -> IO ()
 setTitle (Window w d) t = do
-    netWmName <- internAtom d "_NET_WM_NAME" True
-    utf8String <- internAtom d "UTF8_STRING" True
-    changeProperty8 d w netWmName utf8String propModeReplace . map fromIntegral . BS.unpack $ encodeUtf8 t
+    nET_WM_NAME <- internAtom d "_NET_WM_NAME" True
+    uTF8_STRING <- internAtom d "UTF8_STRING" True
+    changeProperty8 d w nET_WM_NAME uTF8_STRING propModeReplace . map fromIntegral . BS.unpack $ encodeUtf8 t
     flush d
 
 setIcon ::
@@ -54,8 +54,8 @@ setIcon (Window w d) img = do
     case decodePng img of
         Left e -> error e
         Right (ImageRGBA8 Image{..}) -> do
-            netWmIcon <- internAtom d "_NET_WM_ICON" True
-            changeProperty32 d w netWmIcon cARDINAL propModeReplace $
+            nET_WM_ICON <- internAtom d "_NET_WM_ICON" True
+            changeProperty32 d w nET_WM_ICON cARDINAL propModeReplace $
                 map fromIntegral [imageWidth, imageHeight]
                     ++ map unsafeCoerce (groupPixels $ Vec.toList imageData)
             flush d
