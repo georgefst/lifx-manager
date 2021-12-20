@@ -48,7 +48,7 @@ setIcon (Window w) img = case decodePng img of
             _ -> error "vector length not a multiple of 4"
     _ -> error "wrong pixel type"
 
---TODO these should all be upstreamed to Win32
+--TODO these should all be upstreamed to Win32 - see https://github.com/haskell/win32/pull/194
 {- HLINT ignore "Use camelCase" -}
 createIcon :: HINSTANCE -> Int -> Int -> BYTE -> BYTE -> Ptr BYTE -> Ptr BYTE -> IO HICON
 createIcon instance_ width height planes bitsPixel andBits xorBits =
