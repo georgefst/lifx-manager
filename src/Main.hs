@@ -1,6 +1,7 @@
 module Main (main) where
 
 import Control.Applicative
+import Control.Concurrent
 import Control.Monad.Except
 import Control.Monad.State
 import Data.Bifunctor
@@ -18,6 +19,7 @@ import Data.Text.Encoding (decodeUtf8)
 import Data.Text.IO qualified as T
 import Data.Tuple.Extra hiding (first)
 import Data.Word
+import Embed
 import Graphics.Gloss
 import Graphics.Gloss.Interface.Environment
 import Graphics.Gloss.Interface.IO.Interact
@@ -27,8 +29,10 @@ import Optics hiding (both)
 import Optics.State.Operators
 import Options.Generic hiding (Product)
 import System.Exit
+import System.Timeout
 import Text.Pretty.Simple hiding (Color)
 import Util.Gloss
+import Util.Window qualified as Window
 
 data Opts = Opts
     { -- | 0 to 1
@@ -91,6 +95,7 @@ data AppState = AppState
     , windowWidth :: Float
     , windowHeight :: Float
     , lastError :: Maybe Error
+    , window :: MVar Window.Window -- MVar wrapper is due to the fact we can't get this before initialising Gloss
     }
     deriving (Generic)
 data Device' = Device' -- a device plus useful metadata
@@ -106,6 +111,22 @@ data Error
     | OutOfRangeX Float
     | OutOfRangeY Float
     deriving (Show)
+
+{- | The value of this doesn't really matter since it gets overwritten near-instantly at startup.
+But, since we use `Window.findByName`, we should try to make sure other windows are unlikely to share it.
+On some OSs, this may also remain the window "name" (semantic), while we only change the "title" (visual).
+-}
+initialWindowName :: Text
+initialWindowName = "Haskell LIFX Manager"
+
+setWindowTitle :: Window.Window -> Device' -> IO ()
+setWindowTitle w Device'{deviceName} =
+    Window.setTitle w $
+        T.unwords
+            [ deviceName
+            , "-"
+            , "LIFX"
+            ]
 
 main :: IO ()
 main = do
@@ -127,6 +148,7 @@ main = do
     let LightState{hsbk, power} = fst3 $ NE.head devs
     putStrLn "Found devices:"
     pPrintIndented $ NE.toList devs
+    window <- newEmptyMVar
     let s0 =
             AppState
                 { dimension = Nothing
@@ -160,7 +182,7 @@ main = do
         flip evalStateT s0 $
             interactM
                 ( InWindow
-                    "LIFX"
+                    (T.unpack initialWindowName)
                     ( round windowWidth
                     , round windowHeight
                     )
@@ -169,10 +191,7 @@ main = do
                     )
                 )
                 white
-                ( pure
-                    . render (unDefValue lineWidthProportion) (unDefValue columns)
-                    . snd
-                )
+                (render (unDefValue lineWidthProportion) (unDefValue columns) . snd)
                 (coerce update (unDefValue inc))
                 ( either
                     ( \e -> do
@@ -181,11 +200,16 @@ main = do
                     )
                     pure
                 )
-                mempty
+                ( const do
+                    w <- Window.findByName initialWindowName
+                    Window.setIcon w lifxLogo
+                    setWindowTitle w $ streamHead (s0 & \AppState{devices = ds} -> ds) --TODO RecordDotSyntax
+                    putMVar window w
+                )
 
-render :: Float -> Int -> AppState -> (Picture, String)
+render :: Float -> Int -> AppState -> IO Picture
 render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, windowHeight = h, ..} =
-    (,title) . pictures $
+    pure . pictures $
         zipWith
             ( \md y -> translate 0 ((y - 0.5) * rectHeight) case md of
                 Just d ->
@@ -267,12 +291,6 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
     lineWidth = min w h / lineWidthProportion
     rectHeight = h / rows
     columnWidth = w / columns
-    title =
-        unwords
-            [ T.unpack (deviceName . streamHead $ devices)
-            , "-"
-            , "LIFX"
-            ]
 
 update :: Word16 -> Event -> StateT AppState Lifx ()
 update inc event = do
@@ -334,8 +352,12 @@ update inc event = do
   where
     nextDevice = do
         #devices %= Stream.tail
-        Device'{..} <- streamHead <$> use #devices
-        liftIO . T.putStrLn $ "Switching device: " <> deviceName
+        dev'@Device'{..} <- streamHead <$> use #devices
+        winMVar <- use #window
+        liftIO do
+            T.putStrLn $ "Switching device: " <> deviceName
+            w <- maybe (putStrLn "Initialisation failure" >> exitFailure) pure =<< timeout 1_000_000 (readMVar winMVar)
+            setWindowTitle w dev'
         refreshState lifxDevice
     updateColour dev = sendMessage dev . flip SetColor 0 =<< use #hsbk
     refreshState dev = do
