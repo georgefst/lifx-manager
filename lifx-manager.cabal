@@ -15,20 +15,20 @@ executable lifx-manager
     ghc-options:
         -Wall
         -threaded
-    if os(windows)
-        other-modules:
-            Util.Window.Win32
-        cpp-options:
-            -DWIN=Win32
-        build-depends:
-            Win32 ^>= 2.6.2,
-    elif os(linux)
+    if os(linux)
         other-modules:
             Util.Window.X11
         cpp-options:
             -DWIN=X11
         build-depends:
             X11 ^>= 1.10.2,
+    elif os(windows)
+        other-modules:
+            Util.Window.Win32
+        cpp-options:
+            -DWIN=Win32
+        build-depends:
+            Win32 ^>= 2.6.2,
     else
         other-modules:
             Util.Window.Unsupported
