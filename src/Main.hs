@@ -112,8 +112,9 @@ data Error
     | OutOfRangeY Float
     deriving (Show)
 
-{- | The value of this really doesn't matter since it gets overwritten near-instantly at startup.
+{- | The value of this doesn't really matter since it gets overwritten near-instantly at startup.
 But, since we use `Window.findByName`, we should try to make sure other windows are unlikely to share it.
+On some OSs, this may also remain the window "name" (semantic), while we only change the "title" (visual).
 -}
 initialWindowName :: Text
 initialWindowName = "Haskell LIFX Manager"
@@ -207,7 +208,7 @@ main = do
                 )
 
 render :: Float -> Int -> AppState -> IO Picture
-render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, windowHeight = h, ..} = do
+render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, windowHeight = h, ..} =
     pure . pictures $
         zipWith
             ( \md y -> translate 0 ((y - 0.5) * rectHeight) case md of
