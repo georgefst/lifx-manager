@@ -197,7 +197,7 @@ main = do
                 , power = power /= 0
                 , ..
                 }
-        bmpRefresh = case decodePng lifxLogo of
+        bmpRefresh = case decodePng iconRefresh of
             Right (ImageRGBA8 img) -> either (error . show) id . parseBMP $ encodeBitmap img
             Left e -> error e
             _ -> error "wrong pixel type"
