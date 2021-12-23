@@ -7,6 +7,7 @@ import Control.Concurrent
 import Control.Monad.Except
 import Control.Monad.State
 import Data.Bifunctor
+import Data.ByteString (ByteString)
 import Data.Coerce
 import Data.Colour.RGBSpace
 import Data.Colour.RGBSpace.HSV (hsv)
@@ -117,6 +118,18 @@ data Error
     | OutOfRangeY Float
     deriving (Show)
 
+loadBsBmp :: ByteString -> BMP
+loadBsBmp bs = case decodePng bs of
+    Right (ImageRGBA8 img) -> either (error . show) id . parseBMP $ encodeBitmap img
+    Left e -> error e
+    _ -> error "wrong pixel type"
+bmpRefresh :: BMP
+bmpRefresh = loadBsBmp iconRefresh
+bmpPower :: BMP
+bmpPower = loadBsBmp iconPower
+bmpNext :: BMP
+bmpNext = loadBsBmp iconNext
+
 {- | The value of this doesn't really matter since it gets overwritten near-instantly at startup.
 But, since we use `Window.findByName`, we should try to make sure other windows are unlikely to share it.
 On some OSs, this may also remain the window "name" (semantic), while we only change the "title" (visual).
@@ -197,10 +210,6 @@ main = do
                 , power = power /= 0
                 , ..
                 }
-        bmpRefresh = case decodePng iconRefresh of
-            Right (ImageRGBA8 img) -> either (error . show) id . parseBMP $ encodeBitmap img
-            Left e -> error e
-            _ -> error "wrong pixel type"
     runLifx . LifxT $
         flip evalStateT s0 $
             interactM
@@ -214,7 +223,7 @@ main = do
                     )
                 )
                 white
-                (render bmpRefresh (unDefValue lineWidthProportion) (unDefValue columns) . snd)
+                (render (unDefValue lineWidthProportion) (unDefValue columns) . snd)
                 (coerce update (unDefValue inc))
                 ( either
                     ( \e -> do
@@ -230,8 +239,8 @@ main = do
                     putMVar window w
                 )
 
-render :: BMP -> Float -> Int -> AppState -> IO Picture
-render bmpRefresh lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, windowHeight = h, ..} =
+render :: Float -> Int -> AppState -> IO Picture
+render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, windowHeight = h, ..} =
     pure . pictures $
         zipWith
             ( \md y -> translate 0 ((y - 0.5) * rectHeight) case md of
@@ -261,47 +270,9 @@ render bmpRefresh lineWidthProportion (fromIntegral -> columns) AppState{windowW
                 -- the bottom row - there's only one 'Nothing' in the list
                 Nothing ->
                     pictures
-                        [ -- power
-                          pictures
-                            [ rectangleSolid w' rectHeight
-                                & color (if power then white else black)
-                            , circleSolid (min w' rectHeight / 5)
-                                & color (if power then black else white)
-                            ]
-                            & translate (- w') 0
-                        , let (scaleX, scaleY) =
-                                both fromIntegral . (dib3Width &&& dib3Height) $
-                                    bitmabInfoV3 (bmpBitmapInfo bmpRefresh)
-                              s = min (w' / scaleX) (rectHeight / scaleY)
-                           in bitmapOfBMP bmpRefresh & scale s s
-                        , -- next device
-                          let scale' = map (both (/ 50) . ((* w) *** (* h)))
-                              rectPoints =
-                                scale'
-                                    [ (1, -1)
-                                    , (-3, -1)
-                                    , (-3, 1)
-                                    , (1, 1)
-                                    ]
-                              trianglePoints =
-                                scale'
-                                    [ (1, 1)
-                                    , (1, 2)
-                                    , (3, 0)
-                                    , (1, -2)
-                                    , (1, -1)
-                                    ]
-                           in pictures
-                                [ rectangleSolid w' rectHeight
-                                    & color (rgbToGloss $ hsbkToRgb hsbk)
-                                , pictures
-                                    [ polygon rectPoints
-                                    , polygon trianglePoints
-                                    ]
-                                    & color (rgbToGloss $ invertRGB $ hsbkToRgb hsbk)
-                                , line $ rectPoints <> trianglePoints
-                                ]
-                                & translate w' 0
+                        [ drawBitmap bmpPower & translate (- w') 0
+                        , drawBitmap bmpRefresh
+                        , drawBitmap bmpNext & translate w' 0
                         , rectangleSolid lineWidth rectHeight
                             & translate (- w' / 2) 0
                         , rectangleSolid lineWidth rectHeight
@@ -309,6 +280,12 @@ render bmpRefresh lineWidthProportion (fromIntegral -> columns) AppState{windowW
                         ]
                   where
                     w' = w / 3
+                    drawBitmap bmp =
+                        let (scaleX, scaleY) =
+                                both fromIntegral . (dib3Width &&& dib3Height) $
+                                    bitmabInfoV3 (bmpBitmapInfo bmp)
+                            s = min (w' / scaleX) (rectHeight / scaleY)
+                         in bitmapOfBMP bmp & scale s s
             )
             cdRows
             ys
@@ -424,14 +401,6 @@ rgbToGloss RGB{..} =
         channelGreen
         channelBlue
         1
-
-invertRGB :: RGB Float -> RGB Float
-invertRGB RGB{..} =
-    RGB
-        { channelRed = 1 - channelRed
-        , channelGreen = 1 - channelGreen
-        , channelBlue = 1 - channelBlue
-        }
 
 -- min, max across all devices
 minKelvin :: Num a => a
