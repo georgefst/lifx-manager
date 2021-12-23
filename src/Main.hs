@@ -1,5 +1,7 @@
 module Main (main) where
 
+import Codec.BMP hiding (Error)
+import Codec.Picture
 import Control.Applicative
 import Control.Concurrent
 import Control.Monad.Except
@@ -195,6 +197,10 @@ main = do
                 , power = power /= 0
                 , ..
                 }
+        bmpRefresh = case decodePng lifxLogo of
+            Right (ImageRGBA8 img) -> either (error . show) id . parseBMP $ encodeBitmap img
+            Left e -> error e
+            _ -> error "wrong pixel type"
     runLifx . LifxT $
         flip evalStateT s0 $
             interactM
@@ -208,7 +214,7 @@ main = do
                     )
                 )
                 white
-                (render (unDefValue lineWidthProportion) (unDefValue columns) . snd)
+                (render bmpRefresh (unDefValue lineWidthProportion) (unDefValue columns) . snd)
                 (coerce update (unDefValue inc))
                 ( either
                     ( \e -> do
@@ -224,8 +230,8 @@ main = do
                     putMVar window w
                 )
 
-render :: Float -> Int -> AppState -> IO Picture
-render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, windowHeight = h, ..} =
+render :: BMP -> Float -> Int -> AppState -> IO Picture
+render bmpRefresh lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, windowHeight = h, ..} =
     pure . pictures $
         zipWith
             ( \md y -> translate 0 ((y - 0.5) * rectHeight) case md of
@@ -262,7 +268,11 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
                             , circleSolid (min w' rectHeight / 5)
                                 & color (if power then black else white)
                             ]
-                            & translate (- w' / 2) 0
+                            & translate (- w') 0
+                        , let (scaleX, scaleY) =
+                                both fromIntegral . (dib3Width &&& dib3Height) $
+                                    bitmabInfoV3 (bmpBitmapInfo bmpRefresh)
+                           in bitmapOfBMP bmpRefresh & scale (w' / scaleX) (rectHeight / scaleY)
                         , -- next device
                           let scale' = map (both (/ 50) . ((* w) *** (* h)))
                               rectPoints =
@@ -290,11 +300,14 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
                                     & color (rgbToGloss $ invertRGB $ hsbkToRgb hsbk)
                                 , line $ rectPoints <> trianglePoints
                                 ]
-                                & translate (w' / 2) 0
+                                & translate w' 0
                         , rectangleSolid lineWidth rectHeight
+                            & translate (- w' / 2) 0
+                        , rectangleSolid lineWidth rectHeight
+                            & translate (w' / 2) 0
                         ]
                   where
-                    w' = w / 2
+                    w' = w / 3
             )
             cdRows
             ys
@@ -329,12 +342,14 @@ update inc event = do
                     | y > 1 / rows -> setColour K
                     | y >= 0 ->
                         if
-                                | x > 1.0 -> #lastError .= Just (OutOfRangeX x)
-                                | x > 0.5 -> nextDevice
-                                | x > 0.0 -> togglePower dev
+                                | x > 3 / bottomRowCols -> #lastError .= Just (OutOfRangeX x)
+                                | x > 2 / bottomRowCols -> nextDevice
+                                | x > 1 / bottomRowCols -> refreshState dev
+                                | x > 0 / bottomRowCols -> togglePower dev
                                 | otherwise -> #lastError .= Just (OutOfRangeX x)
                     | otherwise -> #lastError .= Just (OutOfRangeY y)
           where
+            bottomRowCols = 3
             rows = genericLength (filter cdSupported enumerate) + 1
             setColour d = do
                 #dimension .= Just d
@@ -466,3 +481,10 @@ pPrintIndented = pPrintOpt CheckColorTty defaultOutputOptionsDarkBg{outputOption
 l += x = l %= (+ x)
 (-=) :: (Is k A_Setter, MonadState s m, Num a) => Optic' k is s a -> a -> m ()
 l -= x = l %= subtract x
+
+--TODO this is a silly function - push upstream?
+bitmabInfoV3 :: BitmapInfo -> BitmapInfoV3
+bitmabInfoV3 = \case
+    InfoV3 x -> x
+    InfoV4 x -> dib4InfoV3 x
+    InfoV5 x -> dib4InfoV3 $ dib5InfoV4 x

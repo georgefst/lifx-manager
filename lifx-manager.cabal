@@ -37,6 +37,7 @@ executable lifx-manager
     build-depends:
         base >= 4.14,
         binary ^>= 0.8.8,
+        bmp ^>= 1.2.6.3,
         bytestring ^>= 0.10.8,
         colour ^>= 2.3.5,
         composition ^>= 1.0.2.1,
