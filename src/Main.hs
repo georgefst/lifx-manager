@@ -272,7 +272,8 @@ render bmpRefresh lineWidthProportion (fromIntegral -> columns) AppState{windowW
                         , let (scaleX, scaleY) =
                                 both fromIntegral . (dib3Width &&& dib3Height) $
                                     bitmabInfoV3 (bmpBitmapInfo bmpRefresh)
-                           in bitmapOfBMP bmpRefresh & scale (w' / scaleX) (rectHeight / scaleY)
+                              s = min (w' / scaleX) (rectHeight / scaleY)
+                           in bitmapOfBMP bmpRefresh & scale s s
                         , -- next device
                           let scale' = map (both (/ 50) . ((* w) *** (* h)))
                               rectPoints =
