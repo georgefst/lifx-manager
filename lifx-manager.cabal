@@ -45,7 +45,7 @@ executable lifx-manager
         file-embed ^>= 0.0.15,
         gloss ^>= 1.13.2,
         JuicyPixels ^>= 3.3.6,
-        lifx-lan ^>= 0.5.1.1,
+        lifx-lan ^>= 0.6,
         monad-loops ^>= 0.4.3,
         mtl ^>= 2.2.2,
         network ^>= 3.1.1.1,

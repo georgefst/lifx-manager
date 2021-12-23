@@ -23,6 +23,7 @@ import Embed
 import Graphics.Gloss
 import Graphics.Gloss.Interface.Environment
 import Graphics.Gloss.Interface.IO.Interact
+import Lifx.Internal.ProductInfoMap qualified
 import Lifx.Lan hiding (color) --TODO hiding will be unnecessary with RecordDotSyntax
 import Lifx.Lan qualified --TODO won't be necessary with RecordDotSyntac
 import Optics hiding (both)
@@ -46,6 +47,8 @@ data Opts = Opts
       lineWidthProportion :: Float <!> "80"
     , -- | how many devices to look for at startup - if not given we just wait until default timeout
       devices :: Maybe Int
+    , -- | don't scan for devices at all - useful for testing/previewing with no network or bulbs
+      fake :: Bool
     }
     deriving (Generic, Show)
 instance ParseRecord Opts where
@@ -135,16 +138,30 @@ main = do
     let windowWidth = screenWidth * unDefValue width
         windowHeight = screenHeight * unDefValue height
     devs <-
-        maybe (liftIO $ putStrLn "timed out without finding any devices!" >> exitFailure) pure . nonEmpty
-            =<< runLifx
-                ( discoverDevices devices
-                    >>= traverse
-                        ( \dev ->
-                            (,dev,)
-                                <$> sendMessage dev GetColor
-                                <*> getProductInfo dev
+        if fake
+            then
+                pure $
+                    pure
+                        ( LightState
+                            { hsbk = HSBK 50000 25000 12500 6250
+                            , label = "Fake device"
+                            , power = 1
+                            }
+                        , deviceFromAddress (0, 0, 0, 0)
+                        , either (error . ("Fake device: " <>) . show) id $
+                            Lifx.Internal.ProductInfoMap.productLookup 1 1 0 0
                         )
-                )
+            else
+                maybe (liftIO $ putStrLn "timed out without finding any devices!" >> exitFailure) pure . nonEmpty
+                    =<< runLifx
+                        ( discoverDevices devices
+                            >>= traverse
+                                ( \dev ->
+                                    (,dev,)
+                                        <$> sendMessage dev GetColor
+                                        <*> getProductInfo dev
+                                )
+                        )
     let LightState{hsbk, power} = fst3 $ NE.head devs
     putStrLn "Found devices:"
     pPrintIndented $ NE.toList devs
