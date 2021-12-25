@@ -118,16 +118,16 @@ data Error
     | OutOfRangeY Float
     deriving (Show)
 
-loadBsBmp :: ByteString -> BMP
+loadBsBmp :: ByteString -> BitmapData
 loadBsBmp bs = case decodePng bs of
-    Right (ImageRGBA8 img) -> either (error . show) id . parseBMP $ encodeBitmap img
+    Right (ImageRGBA8 img) -> either (error . show) bitmapDataOfBMP . parseBMP $ encodeBitmap img
     Left e -> error e
     _ -> error "wrong pixel type"
-bmpRefresh :: BMP
+bmpRefresh :: BitmapData
 bmpRefresh = loadBsBmp iconRefresh
-bmpPower :: BMP
+bmpPower :: BitmapData
 bmpPower = loadBsBmp iconPower
-bmpNext :: BMP
+bmpNext :: BitmapData
 bmpNext = loadBsBmp iconNext
 
 {- | The value of this doesn't really matter since it gets overwritten near-instantly at startup.
@@ -281,11 +281,9 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
                   where
                     w' = w / 3
                     drawBitmap bmp =
-                        let (scaleX, scaleY) =
-                                both fromIntegral . (dib3Width &&& dib3Height) $
-                                    bitmapInfoV3 (bmpBitmapInfo bmp)
+                        let (scaleX, scaleY) = both fromIntegral $ bitmapSize bmp
                             s = min (w' / scaleX) (rectHeight / scaleY)
-                         in bitmapOfBMP bmp & scale s s
+                         in bitmap bmp & scale s s
             )
             cdRows
             ys
@@ -451,10 +449,3 @@ pPrintIndented = pPrintOpt CheckColorTty defaultOutputOptionsDarkBg{outputOption
 l += x = l %= (+ x)
 (-=) :: (Is k A_Setter, MonadState s m, Num a) => Optic' k is s a -> a -> m ()
 l -= x = l %= subtract x
-
---TODO this is a silly function - push upstream?
-bitmapInfoV3 :: BitmapInfo -> BitmapInfoV3
-bitmapInfoV3 = \case
-    InfoV3 x -> x
-    InfoV4 x -> dib4InfoV3 x
-    InfoV5 x -> dib4InfoV3 $ dib5InfoV4 x
