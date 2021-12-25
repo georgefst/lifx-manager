@@ -101,7 +101,6 @@ data AppState = AppState
     , windowWidth :: Float
     , windowHeight :: Float
     , lastError :: Maybe Error
-    , window :: MVar Window.Window -- MVar wrapper is due to the fact we can't get this before initialising Gloss
     }
     deriving (Generic)
 data Device' = Device' -- a device plus useful metadata
@@ -180,7 +179,7 @@ main = do
     let LightState{hsbk, power} = fst3 $ NE.head devs
     putStrLn "Found devices:"
     pPrintIndented $ NE.toList devs
-    window <- newEmptyMVar
+    window <- newEmptyMVar -- MVar wrapper is due to the fact we can't get this before initialising Gloss
     let s0 =
             AppState
                 { dimension = Nothing
@@ -224,7 +223,7 @@ main = do
                 )
                 white
                 (render (unDefValue lineWidthProportion) (unDefValue columns) . snd)
-                (coerce update (unDefValue inc))
+                (coerce update window (unDefValue inc))
                 ( either
                     ( \e -> do
                         pPrint e
@@ -299,8 +298,8 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
     rectHeight = h / rows
     columnWidth = w / columns
 
-update :: Word16 -> Event -> StateT AppState Lifx ()
-update inc event = do
+update :: MVar Window.Window -> Word16 -> Event -> StateT AppState Lifx ()
+update winMVar inc event = do
     w <- use #windowWidth
     h <- use #windowHeight
     dev'@Device'{lifxDevice = dev, cdLower, cdUpper, cdSupported} <- streamHead <$> use #devices
@@ -362,7 +361,6 @@ update inc event = do
     nextDevice = do
         #devices %= Stream.tail
         dev'@Device'{..} <- streamHead <$> use #devices
-        winMVar <- use #window
         liftIO do
             T.putStrLn $ "Switching device: " <> deviceName
             w <- maybe (putStrLn "Initialisation failure" >> exitFailure) pure =<< timeout 1_000_000 (readMVar winMVar)
