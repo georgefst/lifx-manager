@@ -281,9 +281,10 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
                   where
                     w' = w / 3
                     drawBitmap bmp =
-                        let (scaleX, scaleY) = both fromIntegral $ bitmapSize bmp
-                            s = min (w' / scaleX) (rectHeight / scaleY)
-                         in bitmap bmp & scale s s
+                        bitmap bmp
+                            & join
+                                scale
+                                (uncurry min (bimap (w' /) (rectHeight /) . both fromIntegral $ bitmapSize bmp))
             )
             cdRows
             ys
