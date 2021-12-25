@@ -283,7 +283,7 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
                     drawBitmap bmp =
                         let (scaleX, scaleY) =
                                 both fromIntegral . (dib3Width &&& dib3Height) $
-                                    bitmabInfoV3 (bmpBitmapInfo bmp)
+                                    bitmapInfoV3 (bmpBitmapInfo bmp)
                             s = min (w' / scaleX) (rectHeight / scaleY)
                          in bitmapOfBMP bmp & scale s s
             )
@@ -453,8 +453,8 @@ l += x = l %= (+ x)
 l -= x = l %= subtract x
 
 --TODO this is a silly function - push upstream?
-bitmabInfoV3 :: BitmapInfo -> BitmapInfoV3
-bitmabInfoV3 = \case
+bitmapInfoV3 :: BitmapInfo -> BitmapInfoV3
+bitmapInfoV3 = \case
     InfoV3 x -> x
     InfoV4 x -> dib4InfoV3 x
     InfoV5 x -> dib4InfoV3 $ dib5InfoV4 x
