@@ -31,7 +31,7 @@ import Lifx.Lan hiding (color) --TODO hiding will be unnecessary with RecordDotS
 import Lifx.Lan qualified --TODO won't be necessary with RecordDotSyntac
 import Optics hiding (both)
 import Optics.State.Operators
-import Options.Generic hiding (Product)
+import Options.Generic hiding (Product, unwrap)
 import System.Exit
 import System.Timeout
 import Text.Pretty.Simple hiding (Color)
@@ -118,10 +118,10 @@ data Error
     deriving (Show)
 
 loadBsBmp :: ByteString -> BitmapData
-loadBsBmp bs = case decodePng bs of
-    Right (ImageRGBA8 img) -> either (error . show) bitmapDataOfBMP . parseBMP $ encodeBitmap img
-    Left e -> error e
-    _ -> error "wrong pixel type"
+loadBsBmp = bitmapDataOfBMP . unwrap . parseBMP . unwrap . encodeDynamicBitmap . unwrap . decodePng
+  where
+    -- like `fromRight undefined`, but shows a useful error
+    unwrap = either (error . show) id
 bmpRefresh :: BitmapData
 bmpRefresh = loadBsBmp iconRefresh
 bmpPower :: BitmapData
