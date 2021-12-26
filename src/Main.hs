@@ -138,11 +138,19 @@ initialWindowName = "Haskell LIFX Manager"
 
 setWindowTitle :: AppState -> Window.Window -> IO ()
 setWindowTitle AppState{..} w =
-    Window.setTitle w $
-        T.unwords
-            [ deviceName $ streamHead devices
-            , "-"
-            , "LIFX"
+    Window.setTitle w . T.unwords $
+        mconcat
+            [
+                [ deviceName $ streamHead devices
+                ]
+            , mwhen
+                (not power)
+                [ "(powered off)"
+                ]
+            ,
+                [ "-"
+                , "LIFX"
+                ]
             ]
 
 main :: IO ()
@@ -449,3 +457,7 @@ pPrintIndented = pPrintOpt CheckColorTty defaultOutputOptionsDarkBg{outputOption
 l += x = l %= (+ x)
 (-=) :: (Is k A_Setter, MonadState s m, Num a) => Optic' k is s a -> a -> m ()
 l -= x = l %= subtract x
+
+--TODO I've used this in a lot of projects by now - it should probably go in something like `extra`
+mwhen :: Monoid p => Bool -> p -> p
+mwhen b x = if b then x else mempty
