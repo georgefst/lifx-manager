@@ -136,11 +136,11 @@ On some OSs, this may also remain the window "name" (semantic), while we only ch
 initialWindowName :: Text
 initialWindowName = "Haskell LIFX Manager"
 
-setWindowTitle :: Window.Window -> Device' -> IO ()
-setWindowTitle w Device'{deviceName} =
+setWindowTitle :: AppState -> Window.Window -> IO ()
+setWindowTitle AppState{..} w =
     Window.setTitle w $
         T.unwords
-            [ deviceName
+            [ deviceName $ streamHead devices
             , "-"
             , "LIFX"
             ]
@@ -234,7 +234,7 @@ main = do
                 ( const do
                     w <- Window.findByName initialWindowName
                     Window.setIcon w lifxLogo
-                    setWindowTitle w $ streamHead (s0 & \AppState{devices = ds} -> ds) --TODO RecordDotSyntax
+                    setWindowTitle s0 w
                     putMVar window w
                 )
 
@@ -360,11 +360,12 @@ update winMVar inc event = do
   where
     nextDevice = do
         #devices %= Stream.tail
-        dev'@Device'{..} <- streamHead <$> use #devices
+        Device'{..} <- streamHead <$> use #devices
+        s <- get
         liftIO do
             T.putStrLn $ "Switching device: " <> deviceName
             w <- maybe (putStrLn "Initialisation failure" >> exitFailure) pure =<< timeout 1_000_000 (readMVar winMVar)
-            setWindowTitle w dev'
+            setWindowTitle s w
         refreshState lifxDevice
     updateColour dev = sendMessage dev . flip SetColor 0 =<< use #hsbk
     refreshState dev = do
