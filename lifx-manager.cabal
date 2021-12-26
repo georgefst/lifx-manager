@@ -9,6 +9,7 @@ executable lifx-manager
     main-is: Main.hs
     other-modules:
         Embed
+        Embed.Util
         Util.Gloss
         Util.Window
     hs-source-dirs: src
@@ -57,6 +58,7 @@ executable lifx-manager
         random ^>= 1.2.0,
         safe ^>= 0.3.19,
         streams ^>= 3.3,
+        template-haskell ^>= 2.16.0.0,
         text ^>= 1.2.3,
         transformers ^>= 0.5.6,
         time ^>= 1.9.3,

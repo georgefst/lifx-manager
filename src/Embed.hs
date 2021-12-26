@@ -3,14 +3,13 @@
 module Embed where
 
 import Data.ByteString (ByteString)
-import Data.FileEmbed (embedFile)
+import Embed.Util (embed)
 
 lifxLogo :: ByteString
-lifxLogo = $(embedFile "logo.png")
-
+lifxLogo = $(embed "logo.png")
 iconRefresh :: ByteString
-iconRefresh = $(embedFile "noun-refresh-89040.png")
+iconRefresh = $(embed "noun-refresh-89040.png")
 iconPower :: ByteString
-iconPower = $(embedFile "noun-power-89049.png")
+iconPower = $(embed "noun-power-89049.png")
 iconNext :: ByteString
-iconNext = $(embedFile "noun-right-89087.png")
+iconNext = $(embed "noun-right-89087.png")
