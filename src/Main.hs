@@ -117,6 +117,8 @@ data Error
     | OutOfRangeY Float
     deriving (Show)
 
+--TODO we'd ideally use gloss-juicy here, but that library is unfortunately unmaintained and slightly rubbish:
+-- https://github.com/alpmestan/gloss-juicy/issues/12
 loadBsBmp :: ByteString -> BitmapData
 loadBsBmp = bitmapDataOfBMP . unwrap . parseBMP . unwrap . encodeDynamicBitmap . unwrap . decodePng
   where
