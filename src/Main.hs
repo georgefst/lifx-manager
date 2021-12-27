@@ -387,7 +387,7 @@ update winMVar inc event = do
     togglePower dev = do
         p <- not <$> use #power
         #power .= p
-        join $ (liftIO .: setWindowTitle) <$> get <*> liftIO (readMVar winMVar)
+        join $ gets (liftIO .: setWindowTitle) <*> liftIO (readMVar winMVar)
         sendMessage dev $ SetPower p
     setColourFromX dev x =
         use #dimension >>= \case
