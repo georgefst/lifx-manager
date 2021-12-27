@@ -218,35 +218,36 @@ main = do
                 , ..
                 }
     interactIO
-                ( InWindow
-                    (T.unpack initialWindowName)
-                    ( round windowWidth
-                    , round windowHeight
-                    )
-                    ( round $ (screenWidth - windowWidth) / 2
-                    , round $ (screenHeight - windowHeight) / 2
-                    )
-                )
-                white
-                s0
-                (render (unDefValue lineWidthProportion) (unDefValue columns))
-                ( ( \f s ->
-                    fmap snd . either
+        ( InWindow
+            (T.unpack initialWindowName)
+            ( round windowWidth
+            , round windowHeight
+            )
+            ( round $ (screenWidth - windowWidth) / 2
+            , round $ (screenHeight - windowHeight) / 2
+            )
+        )
+        white
+        s0
+        (render (unDefValue lineWidthProportion) (unDefValue columns))
+        ( ( \f s ->
+                fmap snd
+                    . either
                         ( \e -> do
                             pPrint e
                             pure $ flip runState s $ #lastError .= Just (LifxError e)
                         )
                         pure
                     =<< runLifxT 5_000_000 (runStateT f s)
-                  )
-                    . update window (unDefValue inc)
-                )
-                ( const do
-                    w <- Window.findByName initialWindowName
-                    Window.setIcon w lifxLogo
-                    setWindowTitle s0 w
-                    putMVar window w
-                )
+          )
+            . update window (unDefValue inc)
+        )
+        ( const do
+            w <- Window.findByName initialWindowName
+            Window.setIcon w lifxLogo
+            setWindowTitle s0 w
+            putMVar window w
+        )
 
 render :: Float -> Int -> AppState -> IO Picture
 render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, windowHeight = h, ..} =
