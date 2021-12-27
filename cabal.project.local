@@ -1,8 +1,0 @@
-
-package X11
-    extra-lib-dirs:
-        /nix/store/gfipvaizlslshnphk65582pcv2mqqj2v-libX11-1.7.0/lib
-        /nix/store/lh8s4vv95dirn11fj89ax2x6w9sqk9d5-libXrandr-1.5.2/lib
-        /nix/store/pl0f3wanll5phixlxm011ql1rrzdj2xk-libXScrnSaver-1.2.3/lib
-        /nix/store/bpvrd298qm3dvvzclav8hb39394i4c0x-libXext-1.3.4/lib
-
