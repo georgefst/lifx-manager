@@ -11,6 +11,7 @@ import Data.ByteString (ByteString)
 import Data.Coerce
 import Data.Colour.RGBSpace
 import Data.Colour.RGBSpace.HSV (hsv)
+import Data.Composition
 import Data.List.Extra
 import Data.List.NonEmpty (nonEmpty)
 import Data.List.NonEmpty qualified as NE
@@ -386,6 +387,7 @@ update winMVar inc event = do
     togglePower dev = do
         p <- not <$> use #power
         #power .= p
+        join $ (liftIO .: setWindowTitle) <$> get <*> liftIO (readMVar winMVar)
         sendMessage dev $ SetPower p
     setColourFromX dev x =
         use #dimension >>= \case
