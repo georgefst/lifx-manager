@@ -8,7 +8,6 @@ import Control.Monad.Except
 import Control.Monad.State
 import Data.Bifunctor
 import Data.ByteString (ByteString)
-import Data.Coerce
 import Data.Colour.RGBSpace
 import Data.Colour.RGBSpace.HSV (hsv)
 import Data.List.Extra
@@ -35,7 +34,6 @@ import Options.Generic hiding (Product, unwrap)
 import System.Exit
 import System.Timeout
 import Text.Pretty.Simple hiding (Color)
-import Util.Gloss
 import Util.Window qualified as Window
 
 data Opts = Opts
@@ -219,9 +217,7 @@ main = do
                 , power = power /= 0
                 , ..
                 }
-    runLifx . LifxT $
-        flip evalStateT s0 $
-            interactM
+    interactIO
                 ( InWindow
                     (T.unpack initialWindowName)
                     ( round windowWidth
@@ -232,14 +228,18 @@ main = do
                     )
                 )
                 white
-                (render (unDefValue lineWidthProportion) (unDefValue columns) . snd)
-                (coerce update window (unDefValue inc))
-                ( either
-                    ( \e -> do
-                        pPrint e
-                        #lastError .= Just (LifxError e)
-                    )
-                    pure
+                s0
+                (render (unDefValue lineWidthProportion) (unDefValue columns))
+                ( ( \f s ->
+                    fmap snd . either
+                        ( \e -> do
+                            pPrint e
+                            pure $ flip runState s $ #lastError .= Just (LifxError e)
+                        )
+                        pure
+                    =<< runLifxT 5_000_000 (runStateT f s)
+                  )
+                    . update window (unDefValue inc)
                 )
                 ( const do
                     w <- Window.findByName initialWindowName
