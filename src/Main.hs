@@ -384,6 +384,7 @@ update winMVar inc event = do
         LightState{hsbk, power} <- sendMessage dev GetColor
         #hsbk .= hsbk
         #power .= (power /= 0)
+        join $ gets (liftIO .: setWindowTitle) <*> liftIO (readMVar winMVar)
     togglePower dev = do
         p <- not <$> use #power
         #power .= p
