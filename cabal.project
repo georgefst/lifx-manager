@@ -1,0 +1,7 @@
+packages: .
+
+--TODO patch upstream
+allow-newer:
+    gloss:bytestring,
+    gloss-rendering:bytestring,
+    OpenGL:bytestring
