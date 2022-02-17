@@ -220,34 +220,34 @@ main = do
                 , power = power /= 0
                 , ..
                 }
-    runLifx . LifxT $
-        flip evalStateT s0 $
-            interactM
-                ( InWindow
-                    (T.unpack initialWindowName)
-                    ( round windowWidth
-                    , round windowHeight
-                    )
-                    ( round $ (screenWidth - windowWidth) / 2
-                    , round $ (screenHeight - windowHeight) / 2
-                    )
+    runLifx . LifxT
+        . flip evalStateT s0
+        $ interactM
+            ( InWindow
+                (T.unpack initialWindowName)
+                ( round windowWidth
+                , round windowHeight
                 )
-                white
-                (render (unDefValue lineWidthProportion) (unDefValue columns) . snd)
-                (coerce update window (unDefValue inc))
-                ( either
-                    ( \e -> do
-                        pPrint e
-                        #lastError .= Just (LifxError e)
-                    )
-                    pure
+                ( round $ (screenWidth - windowWidth) / 2
+                , round $ (screenHeight - windowHeight) / 2
                 )
-                ( const do
-                    w <- Window.findByName initialWindowName
-                    Window.setIcon w lifxLogo
-                    setWindowTitle s0 w
-                    putMVar window w
+            )
+            white
+            (render (unDefValue lineWidthProportion) (unDefValue columns) . snd)
+            (coerce update window (unDefValue inc))
+            ( either
+                ( \e -> do
+                    pPrint e
+                    #lastError .= Just (LifxError e)
                 )
+                pure
+            )
+            ( const do
+                w <- Window.findByName initialWindowName
+                Window.setIcon w lifxLogo
+                setWindowTitle s0 w
+                putMVar window w
+            )
 
 render :: Float -> Int -> AppState -> IO Picture
 render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, windowHeight = h, ..} =
