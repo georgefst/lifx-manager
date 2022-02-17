@@ -28,8 +28,8 @@ import Graphics.Gloss
 import Graphics.Gloss.Interface.Environment
 import Graphics.Gloss.Interface.IO.Interact
 import Lifx.Internal.ProductInfoMap qualified
-import Lifx.Lan hiding (color) --TODO hiding will be unnecessary with RecordDotSyntax
-import Lifx.Lan qualified --TODO won't be necessary with RecordDotSyntac
+import Lifx.Lan hiding (color) -- TODO hiding will be unnecessary with RecordDotSyntax
+import Lifx.Lan qualified -- TODO won't be necessary with RecordDotSyntac
 import Optics hiding (both)
 import Optics.State.Operators
 import Options.Generic hiding (Product, unwrap)
@@ -40,19 +40,19 @@ import Util.Gloss
 import Util.Window qualified as Window
 
 data Opts = Opts
-    { -- | 0 to 1
-      width :: Float <!> "0.5"
-    , -- | 0 to 1
-      height :: Float <!> "0.5"
-    , -- | for keyboard controls, reciprocal of fraction of full range
-      inc :: Word16 <!> "100"
+    { width :: Float <!> "0.5"
+    -- ^ 0 to 1
+    , height :: Float <!> "0.5"
+    -- ^ 0 to 1
+    , inc :: Word16 <!> "100"
+    -- ^ for keyboard controls, reciprocal of fraction of full range
     , columns :: Int <!> "1000"
-    , -- | divide the smaller of window width and height by this to get line width
-      lineWidthProportion :: Float <!> "80"
-    , -- | how many devices to look for at startup - if not given we just wait until default timeout
-      devices :: Maybe Int
-    , -- | don't scan for devices at all - useful for testing/previewing with no network or bulbs
-      fake :: Bool
+    , lineWidthProportion :: Float <!> "80"
+    -- ^ divide the smaller of window width and height by this to get line width
+    , devices :: Maybe Int
+    -- ^ how many devices to look for at startup - if not given we just wait until default timeout
+    , fake :: Bool
+    -- ^ don't scan for devices at all - useful for testing/previewing with no network or bulbs
     }
     deriving (Generic, Show)
 instance ParseRecord Opts where
@@ -95,10 +95,10 @@ cdKeyUp = \case
 data AppState = AppState
     { hsbk :: HSBK
     , power :: Bool
-    , -- | Which axis, if any, we are currently moving.
-      dimension :: Maybe ColourDimension
-    , -- | All devices. Head is the active device.
-      devices :: Stream Device'
+    , dimension :: Maybe ColourDimension
+    -- ^ Which axis, if any, we are currently moving.
+    , devices :: Stream Device'
+    -- ^ All devices. Head is the active device.
     , windowWidth :: Float
     , windowHeight :: Float
     , lastError :: Maybe Error
@@ -118,7 +118,7 @@ data Error
     | OutOfRangeY Float
     deriving (Show)
 
---TODO we'd ideally use gloss-juicy here, but that library is unfortunately unmaintained and slightly rubbish:
+-- TODO we'd ideally use gloss-juicy here, but that library is unfortunately unmaintained and slightly rubbish:
 -- https://github.com/alpmestan/gloss-juicy/issues/12
 loadBsBmp :: ByteString -> BitmapData
 loadBsBmp = bitmapDataOfBMP . unwrap . parseBMP . unwrap . encodeDynamicBitmap . unwrap . decodePng
@@ -267,7 +267,7 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
                                             & translate (w * (x' - 0.5)) 0
                             , -- current value marker
                               translate (w * (fromIntegral (view (cdLens d) hsbk) - l) / (u - l)) 0
-                                . translate (- w / 2) 0
+                                . translate (-w / 2) 0
                                 $ if dimension == Just d
                                     then
                                         pictures
@@ -280,11 +280,11 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
                 -- the bottom row - there's only one 'Nothing' in the list
                 Nothing ->
                     pictures
-                        [ drawBitmap bmpPower & translate (- w') 0
+                        [ drawBitmap bmpPower & translate (-w') 0
                         , drawBitmap bmpRefresh
                         , drawBitmap bmpNext & translate w' 0
                         , rectangleSolid lineWidth rectHeight
-                            & translate (- w' / 2) 0
+                            & translate (-w' / 2) 0
                         , rectangleSolid lineWidth rectHeight
                             & translate (w' / 2) 0
                         ]
@@ -304,7 +304,7 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
     dev = streamHead devices
     cdRows = map Just (filter (cdSupported dev) enumerate) <> [Nothing]
     rows = fromIntegral $ length cdRows
-    ys = [rows / 2, rows / 2 - 1 .. - rows / 2]
+    ys = [rows / 2, rows / 2 - 1 .. -rows / 2]
     lineWidth = min w h / lineWidthProportion
     rectHeight = h / rows
     columnWidth = w / columns
@@ -320,7 +320,7 @@ update winMVar inc event = do
         cdInc d = (cdUpper d - cdLower d) `div` inc
     case event of
         EventKey (MouseButton LeftButton) Down _ (transform -> (x, y)) ->
-            --TODO Fourmolu should do better here - hang the `if` or at least avoid double indenting
+            -- TODO Fourmolu should do better here - hang the `if` or at least avoid double indenting
             if
                     | y > 5 / rows -> #lastError .= Just (OutOfRangeY y)
                     | y > 4 / rows -> setColour H
@@ -450,19 +450,19 @@ interpolateColour r = liftA2 (\a b -> a * (r + b * (1 - r)))
 maxWord16 :: Float
 maxWord16 = fromIntegral $ maxBound @Word16
 
---TODO for some reason, there is no Stream.head: https://github.com/ekmett/streams/pull/19
+-- TODO for some reason, there is no Stream.head: https://github.com/ekmett/streams/pull/19
 streamHead :: Stream a -> a
 streamHead = (Stream.!! 0)
 
 pPrintIndented :: (MonadIO m, Show a) => a -> m ()
 pPrintIndented = pPrintOpt CheckColorTty defaultOutputOptionsDarkBg{outputOptionsInitialIndent = 4}
 
---TODO upstream: https://github.com/well-typed/optics/issues/433
+-- TODO upstream: https://github.com/well-typed/optics/issues/433
 (+=) :: (Is k A_Setter, MonadState s m, Num a) => Optic' k is s a -> a -> m ()
 l += x = l %= (+ x)
 (-=) :: (Is k A_Setter, MonadState s m, Num a) => Optic' k is s a -> a -> m ()
 l -= x = l %= subtract x
 
---TODO I've used this in a lot of projects by now - it should probably go in something like `extra`
+-- TODO I've used this in a lot of projects by now - it should probably go in something like `extra`
 mwhen :: Monoid p => Bool -> p -> p
 mwhen b x = if b then x else mempty
