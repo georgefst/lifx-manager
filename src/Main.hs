@@ -28,8 +28,8 @@ import Graphics.Gloss
 import Graphics.Gloss.Interface.Environment
 import Graphics.Gloss.Interface.IO.Interact
 import Lifx.Internal.ProductInfoMap qualified
-import Lifx.Lan hiding (color) -- TODO hiding will be unnecessary with RecordDotSyntax
-import Lifx.Lan qualified -- TODO won't be necessary with RecordDotSyntac
+import Lifx.Lan
+import Lifx.Lan.Internal (LifxT (LifxT)) --TODO avoid this somehow
 import Optics hiding (both)
 import Optics.State.Operators
 import Options.Generic hiding (Product, unwrap)
@@ -144,7 +144,7 @@ setWindowTitle AppState{..} w =
     Window.setTitle w . T.unwords $
         mconcat
             [
-                [ deviceName $ streamHead devices
+                [ (streamHead devices).deviceName
                 ]
             , mwhen
                 (not power)
@@ -255,8 +255,8 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
         zipWith
             ( \md y -> translate 0 ((y - 0.5) * rectHeight) case md of
                 Just d ->
-                    let l = fromIntegral $ cdLower dev d
-                        u = fromIntegral $ cdUpper dev d
+                    let l = fromIntegral $ dev.cdLower d
+                        u = fromIntegral $ dev.cdUpper d
                      in pictures
                             [ -- background
                               pictures $
@@ -302,7 +302,7 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
             <> maybe [] (pure . color red . scale 0.2 0.2 . text . show) lastError
   where
     dev = streamHead devices
-    cdRows = map Just (filter (cdSupported dev) enumerate) <> [Nothing]
+    cdRows = map Just (filter dev.cdSupported enumerate) <> [Nothing]
     rows = fromIntegral $ length cdRows
     ys = [rows / 2, rows / 2 - 1 .. -rows / 2]
     lineWidth = min w h / lineWidthProportion
@@ -395,10 +395,10 @@ update winMVar inc event = do
             Nothing -> pure ()
             Just d -> do
                 #hsbk % cdLens d .= round (u * x - l * (x - 1))
-                updateColour $ lifxDevice dev
+                updateColour $ dev.lifxDevice
               where
-                l = fromIntegral $ cdLower dev d
-                u = fromIntegral $ cdUpper dev d
+                l = fromIntegral $ dev.cdLower d
+                u = fromIntegral $ dev.cdUpper d
 
 {- Util -}
 
