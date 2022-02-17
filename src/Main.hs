@@ -2,7 +2,6 @@ module Main (main) where
 
 import Codec.BMP hiding (Error)
 import Codec.Picture
-import Control.Applicative
 import Control.Concurrent
 import Control.Monad.Except
 import Control.Monad.State
@@ -10,7 +9,6 @@ import Data.Bifunctor
 import Data.ByteString (ByteString)
 import Data.Coerce
 import Data.Colour.RGBSpace
-import Data.Colour.RGBSpace.HSV (hsv)
 import Data.Composition
 import Data.List.Extra
 import Data.List.NonEmpty (nonEmpty)
@@ -27,6 +25,7 @@ import Embed
 import Graphics.Gloss
 import Graphics.Gloss.Interface.Environment
 import Graphics.Gloss.Interface.IO.Interact
+import Lifx.Internal.Colour (hsbkToRgb)
 import Lifx.Internal.ProductInfoMap qualified
 import Lifx.Lan
 import Lifx.Lan.Internal (LifxT (LifxT)) -- TODO avoid this somehow
@@ -418,37 +417,6 @@ minKelvin :: Num a => a
 minKelvin = 1500
 maxKelvin :: Num a => a
 maxKelvin = 9000
-
-hsbkToRgb :: HSBK -> RGB Float
-hsbkToRgb HSBK{..} =
-    interpolateColour
-        (fromIntegral saturation / maxWord16)
-        c
-        c'
-  where
-    -- no Kelvin
-    c =
-        hsv
-            (360 * fromIntegral hue / maxWord16)
-            (fromIntegral saturation / maxWord16)
-            (fromIntegral brightness / maxWord16)
-    -- just Kelvin
-    c' =
-        let t =
-                (log (fromIntegral kelvin) - log minKelvin)
-                    / log (maxKelvin / minKelvin)
-         in clamp (0, 1)
-                <$> RGB
-                    { channelRed = 1
-                    , channelGreen = t / 2 + 0.5
-                    , channelBlue = t
-                    }
-
-interpolateColour :: Num a => a -> RGB a -> RGB a -> RGB a
-interpolateColour r = liftA2 (\a b -> a * (r + b * (1 - r)))
-
-maxWord16 :: Float
-maxWord16 = fromIntegral $ maxBound @Word16
 
 -- TODO for some reason, there is no Stream.head: https://github.com/ekmett/streams/pull/19
 streamHead :: Stream a -> a
