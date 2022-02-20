@@ -9,4 +9,4 @@ allow-newer:
 source-repository-package
     type: git
     location: https://github.com/georgefst/lifx-lan
-    tag: 2a63c57cdb27ec87e3790e24150f251369bf486d
+    tag: 4c6596b45c1c82888b3cf486a9618a7a04d8580c

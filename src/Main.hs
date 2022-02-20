@@ -17,7 +17,6 @@ import Data.Maybe
 import Data.Stream.Infinite (Stream)
 import Data.Stream.Infinite qualified as Stream
 import Data.Text qualified as T
-import Data.Text.Encoding (decodeUtf8)
 import Data.Text.IO qualified as T
 import Data.Tuple.Extra hiding (first)
 import Data.Word
@@ -202,7 +201,7 @@ main = do
                                             prod ^. #features % #temperatureRange
                                  in Device'
                                         { lifxDevice
-                                        , deviceName = decodeUtf8 $ lightState ^. #label
+                                        , deviceName = lightState ^. #label
                                         , cdSupported = \case
                                             H -> prod ^. #features % #color
                                             S -> prod ^. #features % #color
