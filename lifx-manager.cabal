@@ -29,7 +29,7 @@ executable lifx-manager
         cpp-options:
             -DWIN=Win32
         build-depends:
-            Win32 ^>= 2.6.2,
+            Win32 ^>= 2.12,
     else
         other-modules:
             Util.Window.Unsupported
