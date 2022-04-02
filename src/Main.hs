@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-orphans #-}
+
 module Main (main) where
 
 import Codec.BMP hiding (Error)
@@ -112,6 +114,7 @@ data Device' = Device' -- a device plus useful metadata
     deriving (Generic)
 data Error
     = LifxError LifxError
+    | UnresponsiveDevice
     | OutOfRangeX Float
     | OutOfRangeY Float
     deriving (Show)
@@ -368,14 +371,17 @@ update winMVar inc event = do
         _ -> pure ()
   where
     nextDevice = do
-        #devices %= Stream.tail
-        Device'{..} <- streamHead <$> use #devices
+        Device'{..} <- streamHead . Stream.tail <$> use #devices
         s <- get
         liftIO do
             T.putStrLn $ "Switching device: " <> deviceName
             w <- maybe (putStrLn "Initialisation failure" >> exitFailure) pure =<< timeout 1_000_000 (readMVar winMVar)
             setWindowTitle s w
-        refreshState lifxDevice
+        success <-
+            (refreshState lifxDevice >> pure True) `catchError` \case
+                RecvTimeout -> #lastError .= Just UnresponsiveDevice >> pure False
+                e -> throwError e >> pure False
+        when success $ #devices %= Stream.tail
     updateColour dev = sendMessage dev . flip SetColor 0 =<< use #hsbk
     refreshState dev = do
         #lastError .= Nothing
@@ -433,3 +439,6 @@ l -= x = l %= subtract x
 -- TODO I've used this in a lot of projects by now - it should probably go in something like `extra`
 mwhen :: Monoid p => Bool -> p -> p
 mwhen b x = if b then x else mempty
+
+-- TODO upstream?
+deriving newtype instance MonadError LifxError (LifxT IO)
