@@ -372,16 +372,18 @@ update winMVar inc event = do
   where
     nextDevice = do
         Device'{..} <- streamHead . Stream.tail <$> use #devices
-        s <- get
-        liftIO do
-            T.putStrLn $ "Switching device: " <> deviceName
-            w <- maybe (putStrLn "Initialisation failure" >> exitFailure) pure =<< timeout 1_000_000 (readMVar winMVar)
-            setWindowTitle s w
         success <-
             (refreshState lifxDevice >> pure True) `catchError` \case
                 RecvTimeout -> #lastError .= Just UnresponsiveDevice >> pure False
                 e -> throwError e >> pure False
-        when success $ #devices %= Stream.tail
+        liftIO $ T.putStrLn $ "Switching device: " <> deviceName
+        when success $ do
+            #devices %= Stream.tail
+            s <- get
+            liftIO $
+                setWindowTitle s
+                    =<< maybe (putStrLn "Initialisation failure" >> exitFailure) pure
+                    =<< timeout 1_000_000 (readMVar winMVar)
     updateColour dev = sendMessage dev . flip SetColor 0 =<< use #hsbk
     refreshState dev = do
         #lastError .= Nothing
