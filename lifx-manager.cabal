@@ -55,7 +55,7 @@ executable lifx-manager
         optics ^>= 0.4,
         optics-extra ^>= 0.4,
         optparse-generic ^>= 1.4.4,
-        pretty-simple ^>= 4.0.0,
+        pretty-simple ^>= 4.1,
         random ^>= 1.2.0,
         safe ^>= 0.3.19,
         streams ^>= 3.3,
