@@ -19,7 +19,6 @@ import Data.Word
 import Graphics.X11 hiding (Window)
 import Graphics.X11 qualified as X11
 import Graphics.X11.Xlib.Extras
-import Unsafe.Coerce
 
 data Window = Window X11.Window Display
     deriving (Eq, Ord)
@@ -57,16 +56,16 @@ setIcon (Window w d) img = do
             nET_WM_ICON <- internAtom d "_NET_WM_ICON" True
             changeProperty32 d w nET_WM_ICON cARDINAL propModeReplace $
                 map fromIntegral [imageWidth, imageHeight]
-                    ++ map unsafeCoerce (groupPixels $ Vec.toList imageData)
+                    ++ map fromIntegral (groupPixels $ Vec.toList imageData)
             flush d
           where
             groupPixels :: [Word8] -> [Word64]
             groupPixels = \case
                 r : g : b : a : ps ->
-                    ( shift (unsafeCoerce a) 24
-                        .|. shift (unsafeCoerce r) 16
-                        .|. shift (unsafeCoerce g) 8
-                        .|. shift (unsafeCoerce b) 0
+                    ( shift (fromIntegral a) 24
+                        .|. shift (fromIntegral r) 16
+                        .|. shift (fromIntegral g) 8
+                        .|. shift (fromIntegral b) 0
                     ) :
                     groupPixels ps
                 [] -> []
