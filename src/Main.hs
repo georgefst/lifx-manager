@@ -282,61 +282,59 @@ render :: Float -> Int -> AppState -> IO Picture
 render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, windowHeight = h, ..} =
     pure . pictures $
         zipWith
-            ( \md y -> translate 0 ((y - 0.5) * rectHeight) case md of
-                Just d ->
-                    let l = fromIntegral $ dev.cdLower d
-                        u = fromIntegral $ dev.cdUpper d
-                     in pictures
-                            [ -- background
-                              pictures $
-                                [0 .. columns - 1] <&> \x ->
-                                    let x' = (x + 0.5) / columns -- x coordinate of the bar's centre, in the interval [0,1]
-                                     in rectangleSolid columnWidth rectHeight
-                                            & color (rgbToGloss . hsbkToRgb $ hsbk & cdLens d .~ round (x' * (u - l) + l))
-                                            & translate (w * (x' - 0.5)) 0
-                            , -- current value marker
-                              translate (w * (fromIntegral (view (cdLens d) hsbk) - l) / (u - l)) 0
-                                . translate (-w / 2) 0
-                                $ if dimension == Just d
-                                    then
-                                        pictures
-                                            [ rectangleSolid (lineWidth * 3) rectHeight
-                                            , rectangleSolid lineWidth (rectHeight - lineWidth * 3)
-                                                & color (rgbToGloss $ hsbkToRgb hsbk)
-                                            ]
-                                    else rectangleSolid lineWidth rectHeight
-                            ]
-                -- the bottom row - there's only one 'Nothing' in the list
-                Nothing ->
-                    pictures
-                        [ rectangleSolid w rectHeight & color (rgbToGloss $ toSRGB bgColour)
-                        , drawBitmap (if power then bmpPower else bmpPowerWhite) & translate (-w') 0
-                        , drawBitmap (if power then bmpRefresh else bmpRefreshWhite)
-                        , drawBitmap (if power then bmpNext else bmpNextWhite) & translate w' 0
-                        , rectangleSolid lineWidth rectHeight
-                            & translate (-w' / 2) 0
-                            & color (rgbToGloss $ toSRGB fgColour)
-                        , rectangleSolid lineWidth rectHeight
-                            & translate (w' / 2) 0
-                            & color (rgbToGloss $ toSRGB fgColour)
-                        ]
-                  where
-                    bgColour = if power then Colour.white else Colour.black
-                    fgColour = if power then Colour.black else Colour.white
-                    w' = w / 3
-                    drawBitmap bmp =
-                        bitmap bmp
-                            & join
-                                scale
-                                (uncurry min (bimap (w' /) (rectHeight /) . both fromIntegral $ bitmapSize bmp))
-            )
-            cdRows
+            (translate 0 . (rectHeight *) . subtract 0.5)
             ys
+            cdRows
             <> map (\y -> translate 0 (y * rectHeight) $ rectangleSolid w lineWidth) ys
             <> maybe [] (pure . color red . scale 0.2 0.2 . text . show) lastError
   where
+    normalRow d =
+        let l = fromIntegral $ dev.cdLower d
+            u = fromIntegral $ dev.cdUpper d
+         in pictures
+                [ -- background
+                  pictures $
+                    [0 .. columns - 1] <&> \x ->
+                        let x' = (x + 0.5) / columns -- x coordinate of the bar's centre, in the interval [0,1]
+                         in rectangleSolid columnWidth rectHeight
+                                & color (rgbToGloss . hsbkToRgb $ hsbk & cdLens d .~ round (x' * (u - l) + l))
+                                & translate (w * (x' - 0.5)) 0
+                , -- current value marker
+                  translate (w * (fromIntegral (view (cdLens d) hsbk) - l) / (u - l)) 0
+                    . translate (-w / 2) 0
+                    $ if dimension == Just d
+                        then
+                            pictures
+                                [ rectangleSolid (lineWidth * 3) rectHeight
+                                , rectangleSolid lineWidth (rectHeight - lineWidth * 3)
+                                    & color (rgbToGloss $ hsbkToRgb hsbk)
+                                ]
+                        else rectangleSolid lineWidth rectHeight
+                ]
+    bottomRow =
+        pictures
+            [ rectangleSolid w rectHeight & color (rgbToGloss $ toSRGB bgColour)
+            , drawBitmap (if power then bmpPower else bmpPowerWhite) & translate (-w') 0
+            , drawBitmap (if power then bmpRefresh else bmpRefreshWhite)
+            , drawBitmap (if power then bmpNext else bmpNextWhite) & translate w' 0
+            , rectangleSolid lineWidth rectHeight
+                & translate (-w' / 2) 0
+                & color (rgbToGloss $ toSRGB fgColour)
+            , rectangleSolid lineWidth rectHeight
+                & translate (w' / 2) 0
+                & color (rgbToGloss $ toSRGB fgColour)
+            ]
+      where
+        bgColour = if power then Colour.white else Colour.black
+        fgColour = if power then Colour.black else Colour.white
+        w' = w / 3
+        drawBitmap bmp =
+            bitmap bmp
+                & join
+                    scale
+                    (uncurry min (bimap (w' /) (rectHeight /) . both fromIntegral $ bitmapSize bmp))
     dev = streamHead devices
-    cdRows = map Just (filter dev.cdSupported enumerate) <> [Nothing]
+    cdRows = map normalRow (filter dev.cdSupported enumerate) <> [bottomRow]
     rows = fromIntegral $ length cdRows
     ys = [rows / 2, rows / 2 - 1 .. -rows / 2]
     lineWidth = min w h / lineWidthProportion
