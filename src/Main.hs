@@ -10,7 +10,9 @@ import Control.Monad.State
 import Data.Bifunctor
 import Data.ByteString (ByteString)
 import Data.Coerce
+import Data.Colour.Names qualified as Colour
 import Data.Colour.RGBSpace
+import Data.Colour.SRGB (toSRGB, toSRGB24)
 import Data.Composition
 import Data.List.Extra
 import Data.List.NonEmpty (nonEmpty)
@@ -21,8 +23,10 @@ import Data.Stream.Infinite qualified as Stream
 import Data.Text qualified as T
 import Data.Text.IO qualified as T
 import Data.Tuple.Extra hiding (first)
+import Data.Vector.Storable qualified as V
 import Data.Word
 import Embed
+import Foreign (Storable)
 import Graphics.Gloss
 import Graphics.Gloss.Interface.Environment
 import Graphics.Gloss.Interface.IO.Interact
@@ -121,20 +125,37 @@ data Error
 
 -- TODO we'd ideally use gloss-juicy here, but that library is unfortunately unmaintained and slightly rubbish:
 -- https://github.com/alpmestan/gloss-juicy/issues/12
-loadBsBmp :: ByteString -> BitmapData
-loadBsBmp = bitmapDataOfBMP . unwrap . parseBMP . encodeBitmap . unwrap . getRGBA8 . unwrap . decodePng
+
+-- | Load a bitmap. Assume the input is monochrome, and output a colour based solely on the alpha value.
+loadBsBmp :: RGB Word8 -> ByteString -> BitmapData
+loadBsBmp c =
+    bitmapDataOfBMP
+        . unwrap
+        . parseBMP
+        . encodeBitmap @PixelRGBA8
+        . ( \Image{..} ->
+                Image
+                    { imageData = mapVector4 (\_r _g _b a -> uncurryRGB (\r g b -> (r, g, b, a)) c) imageData
+                    , ..
+                    }
+          )
+        . unwrap
+        . getRGBA8
+        . unwrap
+        . decodePng
   where
     -- like `fromRight undefined`, but shows a useful error
     unwrap = either (error . show) id
     getRGBA8 = \case
         ImageRGBA8 x -> pure x
         _ -> Left ()
-bmpRefresh :: BitmapData
-bmpRefresh = loadBsBmp iconRefresh
-bmpPower :: BitmapData
-bmpPower = loadBsBmp iconPower
-bmpNext :: BitmapData
-bmpNext = loadBsBmp iconNext
+
+bmpRefresh :: RGB Word8 -> BitmapData
+bmpRefresh = flip loadBsBmp iconRefresh
+bmpPower :: RGB Word8 -> BitmapData
+bmpPower = flip loadBsBmp iconPower
+bmpNext :: RGB Word8 -> BitmapData
+bmpNext = flip loadBsBmp iconNext
 
 {- | The value of this doesn't really matter since it gets overwritten near-instantly at startup.
 But, since we use `Window.findByName`, we should try to make sure other windows are unlikely to share it.
@@ -285,15 +306,20 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
                 -- the bottom row - there's only one 'Nothing' in the list
                 Nothing ->
                     pictures
-                        [ drawBitmap bmpPower & translate (-w') 0
-                        , drawBitmap bmpRefresh
-                        , drawBitmap bmpNext & translate w' 0
+                        [ rectangleSolid w rectHeight & color (rgbToGloss $ toSRGB bgColour)
+                        , drawBitmap (bmpPower $ toSRGB24 fgColour) & translate (-w') 0
+                        , drawBitmap (bmpRefresh $ toSRGB24 fgColour)
+                        , drawBitmap (bmpNext $ toSRGB24 fgColour) & translate w' 0
                         , rectangleSolid lineWidth rectHeight
                             & translate (-w' / 2) 0
+                            & color (rgbToGloss $ toSRGB fgColour)
                         , rectangleSolid lineWidth rectHeight
                             & translate (w' / 2) 0
+                            & color (rgbToGloss $ toSRGB fgColour)
                         ]
                   where
+                    bgColour = if power then Colour.white else Colour.black
+                    fgColour = if power then Colour.black else Colour.white
                     w' = w / 3
                     drawBitmap bmp =
                         bitmap bmp
@@ -448,3 +474,12 @@ mwhen b x = if b then x else mempty
 
 -- TODO upstream?
 deriving newtype instance MonadError LifxError (LifxT IO)
+
+-- TODO it's very inefficient to go via lists here - there must be some nice way to do this in-place
+-- https://www.reddit.com/r/haskell/comments/vorgg1/comment/ieqlbvq
+mapVector4 :: Storable a => (a -> a -> a -> a -> (a, a, a, a)) -> V.Vector a -> V.Vector a
+mapVector4 f = V.fromList . concatMap ((\(a, b, c, d) -> [a, b, c, d]) . f') . chunksOf 4 . V.toList
+  where
+    f' = \case
+        [a, b, c, d] -> f a b c d
+        _ -> error "impossible"
