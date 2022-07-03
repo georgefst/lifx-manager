@@ -313,10 +313,13 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
                 ]
     bottomRow =
         pictures
-            [ rectangleSolid w rectHeight & color (rgbToGloss $ toSRGB bgColour)
-            , drawBitmap (if power then bmpPower else bmpPowerWhite) & translate (-w') 0
+            [ rectangleSolid w rectHeight
+                & color (rgbToGloss $ toSRGB bgColour)
+            , drawBitmap (if power then bmpPower else bmpPowerWhite)
+                & translate (-w') 0
             , drawBitmap (if power then bmpRefresh else bmpRefreshWhite)
-            , drawBitmap (if power then bmpNext else bmpNextWhite) & translate w' 0
+            , drawBitmap (if power then bmpNext else bmpNextWhite)
+                & translate w' 0
             , rectangleSolid lineWidth rectHeight
                 & translate (-w' / 2) 0
                 & color (rgbToGloss $ toSRGB fgColour)
