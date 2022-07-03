@@ -150,12 +150,15 @@ loadBsBmp c =
         ImageRGBA8 x -> pure x
         _ -> Left ()
 
-bmpRefresh :: RGB Word8 -> BitmapData
-bmpRefresh = flip loadBsBmp iconRefresh
-bmpPower :: RGB Word8 -> BitmapData
-bmpPower = flip loadBsBmp iconPower
-bmpNext :: RGB Word8 -> BitmapData
-bmpNext = flip loadBsBmp iconNext
+bmpRefresh, bmpRefreshWhite :: BitmapData
+bmpRefresh = loadBsBmp (toSRGB24 (Colour.black :: Colour Double)) iconRefresh
+bmpRefreshWhite = loadBsBmp (toSRGB24 (Colour.white :: Colour Double)) iconRefresh
+bmpPower, bmpPowerWhite :: BitmapData
+bmpPower = loadBsBmp (toSRGB24 (Colour.black :: Colour Double)) iconPower
+bmpPowerWhite = loadBsBmp (toSRGB24 (Colour.white :: Colour Double)) iconPower
+bmpNext, bmpNextWhite :: BitmapData
+bmpNext = loadBsBmp (toSRGB24 (Colour.black :: Colour Double)) iconNext
+bmpNextWhite = loadBsBmp (toSRGB24 (Colour.white :: Colour Double)) iconNext
 
 {- | The value of this doesn't really matter since it gets overwritten near-instantly at startup.
 But, since we use `Window.findByName`, we should try to make sure other windows are unlikely to share it.
@@ -307,9 +310,9 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
                 Nothing ->
                     pictures
                         [ rectangleSolid w rectHeight & color (rgbToGloss $ toSRGB bgColour)
-                        , drawBitmap (bmpPower $ toSRGB24 fgColour) & translate (-w') 0
-                        , drawBitmap (bmpRefresh $ toSRGB24 fgColour)
-                        , drawBitmap (bmpNext $ toSRGB24 fgColour) & translate w' 0
+                        , drawBitmap (if power then bmpPower else bmpPowerWhite) & translate (-w') 0
+                        , drawBitmap (if power then bmpRefresh else bmpRefreshWhite)
+                        , drawBitmap (if power then bmpNext else bmpNextWhite) & translate w' 0
                         , rectangleSolid lineWidth rectHeight
                             & translate (-w' / 2) 0
                             & color (rgbToGloss $ toSRGB fgColour)
