@@ -221,7 +221,8 @@ main = do
                 , power = power /= 0
                 , ..
                 }
-    runLifx . LifxT
+    runLifx
+        . LifxT
         . flip evalStateT s0
         $ interactM
             ( InWindow
