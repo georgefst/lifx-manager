@@ -122,10 +122,13 @@ data Error
 -- TODO we'd ideally use gloss-juicy here, but that library is unfortunately unmaintained and slightly rubbish:
 -- https://github.com/alpmestan/gloss-juicy/issues/12
 loadBsBmp :: ByteString -> BitmapData
-loadBsBmp = bitmapDataOfBMP . unwrap . parseBMP . unwrap . encodeDynamicBitmap . unwrap . decodePng
+loadBsBmp = bitmapDataOfBMP . unwrap . parseBMP . encodeBitmap . unwrap . getRGBA8 . unwrap . decodePng
   where
     -- like `fromRight undefined`, but shows a useful error
     unwrap = either (error . show) id
+    getRGBA8 = \case
+        ImageRGBA8 x -> pure x
+        _ -> Left ()
 bmpRefresh :: BitmapData
 bmpRefresh = loadBsBmp iconRefresh
 bmpPower :: BitmapData
