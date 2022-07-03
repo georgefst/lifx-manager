@@ -29,7 +29,7 @@ import Graphics.Gloss.Interface.IO.Interact
 import Lifx.Internal.Colour (hsbkToRgb)
 import Lifx.Internal.ProductInfoMap qualified
 import Lifx.Lan
-import Lifx.Lan.Internal (LifxT (LifxT)) -- TODO avoid this somehow
+import Lifx.Lan.Internal (LifxT (LifxT))
 import Optics hiding (both)
 import Optics.State.Operators
 import Options.Generic hiding (Product, unwrap)
