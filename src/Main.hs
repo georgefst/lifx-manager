@@ -479,11 +479,9 @@ mwhen b x = if b then x else mempty
 -- TODO upstream?
 deriving newtype instance MonadError LifxError (LifxT IO)
 
--- TODO it's very inefficient to go via lists here - there must be some nice way to do this in-place
--- https://www.reddit.com/r/haskell/comments/vorgg1/comment/ieqlbvq
 mapVector4 :: Storable a => (a -> a -> a -> a -> (a, a, a, a)) -> V.Vector a -> V.Vector a
-mapVector4 f = V.fromList . concatMap ((\(a, b, c, d) -> [a, b, c, d]) . f') . chunksOf 4 . V.toList
-  where
-    f' = \case
-        [a, b, c, d] -> f a b c d
-        _ -> error "impossible"
+mapVector4 f v = flip (V.unfoldrExactN $ V.length v) (0, []) $ uncurry \n -> \case
+    [] ->
+        let (r0, r1, r2, r3) = f (v V.! n) (v V.! (n + 1)) (v V.! (n + 2)) (v V.! (n + 3))
+         in (r0, (n + 4, [r1, r2, r3]))
+    x : xs -> (x, (n, xs))
