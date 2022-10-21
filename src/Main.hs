@@ -208,20 +208,19 @@ main = do
                             Lifx.Internal.ProductInfoMap.productLookup 1 1 0 0
                         )
             else
-                let
-                    discover = (<> map (deviceFromAddress . hostAddressToTuple . (.unwrap)) ip)
-                        <$> discoverDevices (subtract (length ip) <$> devices)
-                in
-                maybe (liftIO $ putStrLn "timed out without finding any devices!" >> exitFailure) pure . nonEmpty
-                    =<< runLifx
-                        ( discover
-                            >>= traverse
-                                ( \dev ->
-                                    (,dev,)
-                                        <$> sendMessage dev GetColor
-                                        <*> getProductInfo dev
-                                )
-                        )
+                let discover =
+                        (<> map (deviceFromAddress . hostAddressToTuple . (.unwrap)) ip)
+                            <$> discoverDevices (subtract (length ip) <$> devices)
+                 in maybe (liftIO $ putStrLn "timed out without finding any devices!" >> exitFailure) pure . nonEmpty
+                        =<< runLifx
+                            ( discover
+                                >>= traverse
+                                    ( \dev ->
+                                        (,dev,)
+                                            <$> sendMessage dev GetColor
+                                            <*> getProductInfo dev
+                                    )
+                            )
     let LightState{hsbk, power} = fst3 $ NE.head devs
     putStrLn "Found devices:"
     pPrintIndented $ NE.toList devs
