@@ -34,6 +34,7 @@ import Lifx.Internal.Colour (hsbkToRgb)
 import Lifx.Internal.ProductInfoMap qualified
 import Lifx.Lan
 import Lifx.Lan.Internal (LifxT (LifxT))
+import Network.Socket
 import Optics hiding (both)
 import Optics.State.Operators
 import Options.Generic hiding (Product, unwrap)
@@ -55,6 +56,8 @@ data Opts = Opts
     -- ^ divide the smaller of window width and height by this to get line width
     , devices :: Maybe Int
     -- ^ how many devices to look for at startup - if not given we just wait until default timeout
+    , ip :: [IpV4]
+    -- ^ hardcode some devices, instead of waiting for discovery
     , fake :: Bool
     -- ^ don't scan for devices at all - useful for testing/previewing with no network or bulbs
     }
@@ -205,9 +208,13 @@ main = do
                             Lifx.Internal.ProductInfoMap.productLookup 1 1 0 0
                         )
             else
+                let
+                    discover = (<> map (deviceFromAddress . hostAddressToTuple . (.unwrap)) ip)
+                        <$> discoverDevices (subtract (length ip) <$> devices)
+                in
                 maybe (liftIO $ putStrLn "timed out without finding any devices!" >> exitFailure) pure . nonEmpty
                     =<< runLifx
-                        ( discoverDevices devices
+                        ( discover
                             >>= traverse
                                 ( \dev ->
                                     (,dev,)
@@ -486,3 +493,16 @@ mapVector4 f v = flip (V.unfoldrExactN $ V.length v) (0, []) $ uncurry \n -> \ca
             (r0, r1, r2, r3) = f (l n) (l $ n + 1) (l $ n + 2) (l $ n + 3)
          in (r0, (n + 4, [r1, r2, r3]))
     x : xs -> (x, (n, xs))
+
+-- TODO this belongs in a library
+newtype IpV4 = IpV4 {unwrap :: HostAddress}
+    deriving stock (Generic)
+    deriving anyclass (ParseRecord, ParseField, ParseFields)
+instance Show IpV4 where
+    show (IpV4 x) = intercalate "." $ map show [a, b, c, d]
+      where
+        (a, b, c, d) = hostAddressToTuple x
+instance Read IpV4 where
+    readsPrec _ s = case map read $ splitOn "." s of
+        [a, b, c, d] -> pure $ (,"") $ IpV4 $ tupleToHostAddress (a, b, c, d)
+        _ -> []
