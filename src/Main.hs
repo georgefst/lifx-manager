@@ -482,6 +482,7 @@ deriving newtype instance MonadError LifxError (LifxT IO)
 mapVector4 :: Storable a => (a -> a -> a -> a -> (a, a, a, a)) -> V.Vector a -> V.Vector a
 mapVector4 f v = flip (V.unfoldrExactN $ V.length v) (0, []) $ uncurry \n -> \case
     [] ->
-        let (r0, r1, r2, r3) = f (v V.! n) (v V.! (n + 1)) (v V.! (n + 2)) (v V.! (n + 3))
+        let l i = v V.! i
+            (r0, r1, r2, r3) = f (l n) (l $ n + 1) (l $ n + 2) (l $ n + 3)
          in (r0, (n + 4, [r1, r2, r3]))
     x : xs -> (x, (n, xs))
