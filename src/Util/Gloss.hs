@@ -31,7 +31,7 @@ instance MonadGloss IO where
     initWorld = pure ()
 instance (MonadGloss m) => MonadGloss (MaybeT m) where
     type World (MaybeT m) = World m
-    type Error (MaybeT m) = (Maybe (Error m))
+    type Error (MaybeT m) = Maybe (Error m)
     runUpdate h x = runUpdate (h' . Just) (runMaybeT x >>= h'')
       where
         h' = h'' <=< runMaybeT . h
@@ -39,7 +39,7 @@ instance (MonadGloss m) => MonadGloss (MaybeT m) where
     initWorld = lift initWorld
 instance (MonadGloss m) => MonadGloss (ExceptT err m) where
     type World (ExceptT err m) = World m
-    type Error (ExceptT err m) = (Either err (Error m))
+    type Error (ExceptT err m) = Either err (Error m)
     runUpdate h x = runUpdate (h' . Right) (runExceptT x >>= h'')
       where
         h' = h'' <=< runExceptT . h
