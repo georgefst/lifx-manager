@@ -55,7 +55,9 @@ data Opts = Opts
     , lineWidthProportion :: Float <!> "80"
     -- ^ divide the smaller of window width and height by this to get line width
     , devices :: Maybe Int
-    -- ^ how many devices to look for at startup - if not given we just wait until default timeout
+    -- ^ how many devices to look for at startup - if not given we just wait until timeout
+    , timeout :: Int <!> "5"
+    -- ^ how long to wait for message responses
     , ip :: [IpV4]
     -- ^ hardcode some devices, instead of waiting for discovery
     , fake :: Bool
@@ -254,9 +256,10 @@ main = do
                 , power = power /= 0
                 , ..
                 }
-    runLifx
-        . LifxT
-        . flip evalStateT s0
+    either (\err -> putStrLn ("LIFX initialisation failed: " <> show err) >> exitFailure) pure
+        <=< runLifxT (unDefValue timeout)
+            . LifxT
+            . flip evalStateT s0
         $ interactM
             ( InWindow
                 (T.unpack initialWindowName)
