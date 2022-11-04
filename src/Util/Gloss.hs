@@ -74,11 +74,12 @@ interactM ::
     m Void
 interactM dis col draw upd he eat = do
     s0 <- initWorld
-    liftIO $ (error "can't happen - interactIO never terminates" :: () -> Void) <$> --TODO Gloss should return Void
-        interactIO
-            dis
-            col
-            s0
-            draw
-            (\e s -> fst <$> runUpdate he (upd e) s)
-            eat
+    liftIO $
+        (error "can't happen - interactIO never terminates" :: () -> Void)
+            <$> interactIO -- TODO Gloss should return Void
+                dis
+                col
+                s0
+                draw
+                (\e s -> fst <$> runUpdate he (upd e) s)
+                eat
