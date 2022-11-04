@@ -16,6 +16,7 @@ import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Trans.Maybe
 import Data.Bifunctor
+import Data.Void (Void)
 import Graphics.Gloss
 import Graphics.Gloss.Interface.IO.Interact
 
@@ -70,10 +71,10 @@ interactM ::
     -- | Handle errors.
     (Error m -> m ()) ->
     (Controller -> IO ()) ->
-    m ()
+    m Void
 interactM dis col draw upd he eat = do
     s0 <- initWorld
-    liftIO $
+    liftIO $ (error "can't happen - interactIO never terminates" :: () -> Void) <$> --TODO Gloss should return Void
         interactIO
             dis
             col

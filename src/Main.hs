@@ -24,6 +24,7 @@ import Data.Text qualified as T
 import Data.Text.IO qualified as T
 import Data.Tuple.Extra hiding (first)
 import Data.Vector.Storable qualified as V
+import Data.Void (absurd)
 import Data.Word
 import Embed
 import Foreign (Storable)
@@ -256,7 +257,7 @@ main = do
                 , power = power /= 0
                 , ..
                 }
-    either (\err -> putStrLn ("LIFX initialisation failed: " <> show err) >> exitFailure) pure
+    either (\err -> putStrLn ("LIFX initialisation failed: " <> show err) >> exitFailure) absurd
         <=< runLifxT (unDefValue opts.timeout)
             . LifxT
             . flip evalStateT s0
