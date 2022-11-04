@@ -191,12 +191,12 @@ setWindowTitle AppState{..} w =
 
 main :: IO ()
 main = do
-    Opts{..} <- getRecord "LIFX"
+    (opts :: Opts) <- getRecord "LIFX"
     (screenWidth, screenHeight) <- both fromIntegral <$> getScreenSize
-    let windowWidth = screenWidth * unDefValue width
-        windowHeight = screenHeight * unDefValue height
+    let windowWidth = screenWidth * unDefValue opts.width
+        windowHeight = screenHeight * unDefValue opts.height
     devs <-
-        if fake
+        if opts.fake
             then
                 pure $
                     pure
@@ -211,8 +211,8 @@ main = do
                         )
             else
                 let discover =
-                        (<> map (deviceFromAddress . hostAddressToTuple . (.unwrap)) ip)
-                            <$> discoverDevices (subtract (length ip) <$> devices)
+                        (<> map (deviceFromAddress . hostAddressToTuple . (.unwrap)) opts.ip)
+                            <$> discoverDevices (subtract (length opts.ip) <$> opts.devices)
                  in maybe (liftIO $ putStrLn "timed out without finding any devices!" >> exitFailure) pure . nonEmpty
                         =<< runLifx
                             ( discover
@@ -257,7 +257,7 @@ main = do
                 , ..
                 }
     either (\err -> putStrLn ("LIFX initialisation failed: " <> show err) >> exitFailure) pure
-        <=< runLifxT (unDefValue timeout)
+        <=< runLifxT (unDefValue opts.timeout)
             . LifxT
             . flip evalStateT s0
         $ interactM
@@ -271,8 +271,8 @@ main = do
                 )
             )
             white
-            (render (unDefValue lineWidthProportion) (unDefValue columns) . snd)
-            (coerce update window (unDefValue inc))
+            (render (unDefValue opts.lineWidthProportion) (unDefValue opts.columns) . snd)
+            (coerce update window (unDefValue opts.inc))
             ( either
                 ( \e -> do
                     pPrint e
