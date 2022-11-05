@@ -24,7 +24,7 @@ import Data.Text qualified as T
 import Data.Text.IO qualified as T
 import Data.Tuple.Extra hiding (first)
 import Data.Vector.Storable qualified as V
-import Data.Void (absurd)
+import Data.Void
 import Data.Word
 import Embed
 import Foreign (Storable)

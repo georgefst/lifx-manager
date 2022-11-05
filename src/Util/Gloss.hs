@@ -16,7 +16,7 @@ import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Trans.Maybe
 import Data.Bifunctor
-import Data.Void (Void)
+import Data.Void
 import Graphics.Gloss
 import Graphics.Gloss.Interface.IO.Interact
 
