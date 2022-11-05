@@ -57,8 +57,8 @@ data Opts = Opts
     -- ^ divide the smaller of window width and height by this to get line width
     , devices :: Maybe Int
     -- ^ how many devices to look for at startup - if not given we just wait until timeout
-    , timeout :: Int <!> "5000000"
-    -- ^ how long to wait for message responses
+    , timeout :: Int <!> "5"
+    -- ^ how long to wait for message responses, in seconds
     , ip :: [IpV4]
     -- ^ hardcode some devices, instead of waiting for discovery
     , fake :: Bool
@@ -196,6 +196,7 @@ main = do
     (screenWidth, screenHeight) <- both fromIntegral <$> getScreenSize
     let windowWidth = screenWidth * unDefValue opts.width
         windowHeight = screenHeight * unDefValue opts.height
+        lifxTimeout = unDefValue opts.timeout * 1_000_000
     devs <-
         if opts.fake
             then
@@ -217,7 +218,7 @@ main = do
                  in maybe (liftIO $ putStrLn "timed out without finding any devices!" >> exitFailure) pure . nonEmpty
                         =<< either (lifxFailure "LIFX failure during discovery") pure
                         =<< runLifxT
-                            (unDefValue opts.timeout)
+                            lifxTimeout
                             ( discover
                                 >>= traverse
                                     ( \dev ->
@@ -262,7 +263,7 @@ main = do
     absurd
         <$> interactM
             ( either (lifxFailure "LIFX initialisation failed") pure
-                <=< runLifxT (unDefValue opts.timeout)
+                <=< runLifxT lifxTimeout
                     . LifxT
                     . flip evalStateT s0
             )
