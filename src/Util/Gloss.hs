@@ -64,7 +64,7 @@ instance (MonadGloss m) => MonadGloss (StateT s m) where
 
 interactM ::
     MonadGloss m =>
-    (m (World m) -> IO (World m)) ->
+    (forall a. m a -> IO a) ->
     Display ->
     Color ->
     (World m -> IO Picture) ->
