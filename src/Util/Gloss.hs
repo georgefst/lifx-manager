@@ -64,6 +64,7 @@ instance (MonadGloss m) => MonadGloss (StateT s m) where
 
 interactM ::
     MonadGloss m =>
+    (m (World m) -> IO (World m)) ->
     Display ->
     Color ->
     (World m -> IO Picture) ->
@@ -71,11 +72,10 @@ interactM ::
     -- | Handle errors.
     (Error m -> m ()) ->
     (Controller -> IO ()) ->
-    m Void
-interactM dis col draw upd he eat = do
-    s0 <- initWorld
-    liftIO $
-        (error "can't happen - interactIO never terminates" :: () -> Void)
+    IO Void
+interactM run dis col draw upd he eat = do
+    s0 <- run initWorld
+    (error "can't happen - interactIO never terminates" :: () -> Void)
             <$> interactIO -- TODO Gloss should return Void
                 dis
                 col

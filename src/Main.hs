@@ -257,11 +257,13 @@ main = do
                 , power = power /= 0
                 , ..
                 }
-    either (\err -> putStrLn ("LIFX initialisation failed: " <> show err) >> exitFailure) absurd
-        <=< runLifxT (unDefValue opts.timeout)
-            . LifxT
-            . flip evalStateT s0
-        $ interactM
+    absurd
+        <$> interactM
+            ( either (\err -> putStrLn ("LIFX initialisation failed: " <> show err) >> exitFailure) pure
+                <=< runLifxT (unDefValue opts.timeout)
+                    . LifxT
+                    . flip evalStateT s0
+            )
             ( InWindow
                 (T.unpack initialWindowName)
                 ( round windowWidth
