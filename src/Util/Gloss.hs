@@ -75,8 +75,8 @@ interactM ::
     IO Void
 interactM run dis col draw upd he eat = do
     s0 <- run initWorld
-    (error "can't happen - interactIO never terminates" :: () -> Void)
-        <$> interactIO -- TODO Gloss should return Void
+    (error "can't happen - interactIO never terminates" :: () -> Void) -- TODO Gloss should return Void
+        <$> interactIO
             dis
             col
             s0
