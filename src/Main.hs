@@ -215,7 +215,9 @@ main = do
                         (<> map (deviceFromAddress . hostAddressToTuple . (.unwrap)) opts.ip)
                             <$> discoverDevices (subtract (length opts.ip) <$> opts.devices)
                  in maybe (liftIO $ putStrLn "timed out without finding any devices!" >> exitFailure) pure . nonEmpty
-                        =<< runLifx
+                        =<< either (lifxFailure "LIFX failure during discovery") pure
+                        =<< runLifxT
+                            (unDefValue opts.timeout)
                             ( discover
                                 >>= traverse
                                     ( \dev ->
@@ -259,7 +261,7 @@ main = do
                 }
     absurd
         <$> interactM
-            ( either (\err -> putStrLn ("LIFX initialisation failed: " <> show err) >> exitFailure) pure
+            ( either (lifxFailure "LIFX initialisation failed") pure
                 <=< runLifxT (unDefValue opts.timeout)
                     . LifxT
                     . flip evalStateT s0
@@ -289,6 +291,8 @@ main = do
                 setWindowTitle s0 w
                 putMVar window w
             )
+  where
+    lifxFailure t err = putStrLn (t <> ": " <> show err) >> exitFailure
 
 render :: Float -> Int -> AppState -> IO Picture
 render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, windowHeight = h, ..} =
