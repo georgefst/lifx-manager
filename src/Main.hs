@@ -36,6 +36,7 @@ import Lifx.Internal.ProductInfoMap qualified
 import Lifx.Lan
 import Lifx.Lan.Internal (LifxT (LifxT))
 import Network.Socket
+import OS.Window qualified as Window
 import Optics hiding (both)
 import Optics.State.Operators
 import Options.Generic hiding (Product, unwrap)
@@ -43,7 +44,6 @@ import System.Exit
 import System.Timeout
 import Text.Pretty.Simple hiding (Color)
 import Util.Gloss
-import Util.Window qualified as Window
 
 data Opts = Opts
     { width :: Float <!> "0.5"
