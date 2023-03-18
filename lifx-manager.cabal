@@ -16,7 +16,7 @@ executable lifx-manager
         -Wall
         -threaded
     build-depends:
-        base ^>= 4.16,
+        base >= 4.16,
         binary ^>= 0.8.8,
         bmp ^>= 1.2.6.3,
         bytestring ^>= 0.11,
@@ -28,9 +28,9 @@ executable lifx-manager
         filepath ^>= 1.4.2.1,
         gloss ^>= 1.13.2,
         JuicyPixels ^>= 3.3.6,
-        lifx-lan ^>= 0.7.1,
+        lifx-lan ^>= {0.7.1},
         monad-loops ^>= 0.4.3,
-        mtl ^>= 2.2.2,
+        mtl ^>= {2.2.2, 2.3},
         network ^>= 3.1.1.1,
         optics ^>= 0.4,
         optics-extra ^>= 0.4,
@@ -39,12 +39,12 @@ executable lifx-manager
         random ^>= 1.2.0,
         safe ^>= 0.3.19,
         streams ^>= 3.3,
-        template-haskell ^>= 2.18,
-        text ^>= 1.2.3,
-        transformers ^>= 0.5.6,
-        time ^>= 1.10,
-        vector ^>= 0.12.3.1,
-        window-utils ^>= 0.1,
+        template-haskell ^>= {2.18, 2.19},
+        text ^>= {1.2.3, 2.0},
+        transformers ^>= {0.5.6, 0.6},
+        time ^>= {1.10, 1.11, 1.12},
+        vector ^>= {0.12.3.1, 0.13},
+        window-utils ^>= 0.2,
     default-language: Haskell2010
     default-extensions:
         BlockArguments

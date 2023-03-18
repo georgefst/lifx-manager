@@ -6,6 +6,7 @@ import Codec.BMP hiding (Error)
 import Codec.Picture
 import Control.Concurrent
 import Control.Monad.Except
+import Control.Monad.Reader (ReaderT (..))
 import Control.Monad.State
 import Data.Bifunctor
 import Data.ByteString (ByteString)
