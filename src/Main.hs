@@ -1,3 +1,4 @@
+{-# LANGUAGE UndecidableInstances #-}
 {-# OPTIONS_GHC -Wno-orphans #-}
 
 module Main (main) where
@@ -426,7 +427,7 @@ update winMVar inc event = do
         Device'{..} <- streamHead . Stream.tail <$> use #devices
         success <-
             (refreshState lifxDevice >> pure True) `catchError` \case
-                RecvTimeout -> #lastError .= Just UnresponsiveDevice >> pure False
+                Right RecvTimeout -> #lastError .= Just UnresponsiveDevice >> pure False
                 e -> throwError e >> pure False
         liftIO $ T.putStrLn $ "Switching device: " <> deviceName
         when success $ do
@@ -494,8 +495,20 @@ l -= x = l %= subtract x
 mwhen :: Monoid p => Bool -> p -> p
 mwhen b x = if b then x else mempty
 
--- TODO upstream?
-deriving newtype instance MonadError LifxError (LifxT IO)
+-- TODO when this is used upstream (probably lifx-lan-0.9), remove along with pragmas
+instance MonadTrans LifxT where
+    lift = LifxT . lift . lift . lift
+instance MonadError e m => MonadError (Either e LifxError) (LifxT m) where
+    throwError = either (lift . throwError @e @m) (LifxT . throwError)
+    catchError m h = LifxT $ StateT \s -> ReaderT \e ->
+        ExceptT do
+            (m', s'') <-
+                unLifx e s m <&> \case
+                    Left err -> (h $ Right err, s)
+                    Right (x, s') -> (pure x, s')
+            catchError @e @m (unLifx e s'' m') (unLifx e s'' . h . Left)
+      where
+        unLifx e s = runExceptT . flip runReaderT e . flip runStateT s . (\(LifxT x) -> x)
 
 mapVector4 :: Storable a => (a -> a -> a -> a -> (a, a, a, a)) -> V.Vector a -> V.Vector a
 mapVector4 f v = flip (V.unfoldrExactN $ V.length v) (0, []) $ uncurry \n -> \case
