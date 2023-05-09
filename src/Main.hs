@@ -426,11 +426,9 @@ update winMVar inc event = do
         Device'{..} <- streamHead . Stream.tail <$> use #devices
         success <-
             (refreshState lifxDevice >> pure True)
-                -- TODO this kind of proves the inadequacies of the `MonadError` instance in `lifx-lan` 0.8
-                -- `catchError` \case
-                --     Right RecvTimeout -> #lastError .= Just UnresponsiveDevice >> pure False
-                --     e -> throwError e >> pure False
-                `catchError` (fmap (const False) . pPrint)
+                `catchError` \case
+                    Right RecvTimeout -> #lastError .= Just UnresponsiveDevice >> pure False
+                    e -> throwError e >> pure False
         liftIO $ T.putStrLn $ "Switching device: " <> deviceName
         when success $ do
             #devices %= Stream.tail
@@ -475,9 +473,9 @@ rgbToGloss RGB{..} =
         1
 
 -- min, max across all devices
-minKelvin :: Num a => a
+minKelvin :: (Num a) => a
 minKelvin = 1500
-maxKelvin :: Num a => a
+maxKelvin :: (Num a) => a
 maxKelvin = 9000
 
 -- TODO for some reason, there is no Stream.head: https://github.com/ekmett/streams/pull/19
@@ -494,10 +492,10 @@ l += x = l %= (+ x)
 l -= x = l %= subtract x
 
 -- TODO I've used this in a lot of projects by now - it should probably go in something like `extra`
-mwhen :: Monoid p => Bool -> p -> p
+mwhen :: (Monoid p) => Bool -> p -> p
 mwhen b x = if b then x else mempty
 
-mapVector4 :: Storable a => (a -> a -> a -> a -> (a, a, a, a)) -> V.Vector a -> V.Vector a
+mapVector4 :: (Storable a) => (a -> a -> a -> a -> (a, a, a, a)) -> V.Vector a -> V.Vector a
 mapVector4 f v = flip (V.unfoldrExactN $ V.length v) (0, []) $ uncurry \n -> \case
     [] ->
         let l i = v V.! i
