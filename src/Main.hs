@@ -7,7 +7,6 @@ import Codec.BMP hiding (Error)
 import Codec.Picture
 import Control.Concurrent
 import Control.Monad.Except
-import Control.Monad.Reader (ReaderT (..))
 import Control.Monad.State
 import Data.Bifunctor
 import Data.ByteString (ByteString)
@@ -426,9 +425,12 @@ update winMVar inc event = do
     nextDevice = do
         Device'{..} <- streamHead . Stream.tail <$> use #devices
         success <-
-            (refreshState lifxDevice >> pure True) `catchError` \case
-                Right RecvTimeout -> #lastError .= Just UnresponsiveDevice >> pure False
-                e -> throwError e >> pure False
+            (refreshState lifxDevice >> pure True)
+                -- TODO this kind of proves the inadequacies of the `MonadError` instance in `lifx-lan` 0.8
+                -- `catchError` \case
+                --     Right RecvTimeout -> #lastError .= Just UnresponsiveDevice >> pure False
+                --     e -> throwError e >> pure False
+                `catchError` (fmap (const False) . pPrint)
         liftIO $ T.putStrLn $ "Switching device: " <> deviceName
         when success $ do
             #devices %= Stream.tail
@@ -494,21 +496,6 @@ l -= x = l %= subtract x
 -- TODO I've used this in a lot of projects by now - it should probably go in something like `extra`
 mwhen :: Monoid p => Bool -> p -> p
 mwhen b x = if b then x else mempty
-
--- TODO when this is used upstream (probably lifx-lan-0.9), remove along with pragmas
-instance MonadTrans LifxT where
-    lift = LifxT . lift . lift . lift
-instance MonadError e m => MonadError (Either e LifxError) (LifxT m) where
-    throwError = either (lift . throwError @e @m) (LifxT . throwError)
-    catchError m h = LifxT $ StateT \s -> ReaderT \e ->
-        ExceptT do
-            (m', s'') <-
-                unLifx e s m <&> \case
-                    Left err -> (h $ Right err, s)
-                    Right (x, s') -> (pure x, s')
-            catchError @e @m (unLifx e s'' m') (unLifx e s'' . h . Left)
-      where
-        unLifx e s = runExceptT . flip runReaderT e . flip runStateT s . (\(LifxT x) -> x)
 
 mapVector4 :: Storable a => (a -> a -> a -> a -> (a, a, a, a)) -> V.Vector a -> V.Vector a
 mapVector4 f v = flip (V.unfoldrExactN $ V.length v) (0, []) $ uncurry \n -> \case
