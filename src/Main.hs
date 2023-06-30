@@ -19,6 +19,7 @@ import Data.List.Extra
 import Data.List.NonEmpty (nonEmpty)
 import Data.List.NonEmpty qualified as NE
 import Data.Maybe
+import Data.Optics.Operators
 import Data.Stream.Infinite (Stream)
 import Data.Stream.Infinite qualified as Stream
 import Data.Text qualified as T
@@ -484,12 +485,6 @@ streamHead = (Stream.!! 0)
 
 pPrintIndented :: (MonadIO m, Show a) => a -> m ()
 pPrintIndented = pPrintOpt CheckColorTty defaultOutputOptionsDarkBg{outputOptionsInitialIndent = 4}
-
--- TODO upstream: https://github.com/well-typed/optics/issues/433
-(+=) :: (Is k A_Setter, MonadState s m, Num a) => Optic' k is s a -> a -> m ()
-l += x = l %= (+ x)
-(-=) :: (Is k A_Setter, MonadState s m, Num a) => Optic' k is s a -> a -> m ()
-l -= x = l %= subtract x
 
 -- TODO I've used this in a lot of projects by now - it should probably go in something like `extra`
 mwhen :: (Monoid p) => Bool -> p -> p

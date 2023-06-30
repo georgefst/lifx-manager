@@ -34,6 +34,7 @@ executable lifx-manager
         network ^>= 3.1.1.1,
         optics ^>= 0.4,
         optics-extra ^>= 0.4,
+        optics-operators ^>= 0.1,
         optparse-generic ^>= 1.4.4,
         pretty-simple ^>= 4.1,
         random ^>= 1.2.0,
