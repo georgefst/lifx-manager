@@ -1,6 +1,1 @@
 packages: .
-
-source-repository-package
-    type: git
-    location: https://github.com/georgefst/lifx-lan
-    tag: eee4e3164bb3aa48ff5631d3753b41f757bf62b3

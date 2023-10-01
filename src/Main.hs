@@ -6,6 +6,7 @@ module Main (main) where
 import Codec.BMP hiding (Error)
 import Codec.Picture
 import Control.Concurrent
+import Control.Monad
 import Control.Monad.Except
 import Control.Monad.State
 import Data.Bifunctor
@@ -282,9 +283,11 @@ main = do
             (render (unDefValue opts.lineWidthProportion) (unDefValue opts.columns) . snd)
             (coerce update window (unDefValue opts.inc))
             ( either
-                ( \e -> do
-                    pPrint e
-                    #lastError .= Just (LifxError e)
+                ( \case
+                    RecvTimeout -> #lastError .= Just UnresponsiveDevice
+                    e -> do
+                        pPrint e
+                        #lastError .= Just (LifxError e)
                 )
                 pure
             )
@@ -427,9 +430,7 @@ update winMVar inc event = do
         Device'{..} <- streamHead . Stream.tail <$> use #devices
         success <-
             (refreshState lifxDevice >> pure True)
-                `catchError` \case
-                    Right RecvTimeout -> #lastError .= Just UnresponsiveDevice >> pure False
-                    e -> throwError e >> pure False
+                `catchError` \e -> throwError e >> pure False
         liftIO $ T.putStrLn $ "Switching device: " <> deviceName
         when success $ do
             #devices %= Stream.tail
@@ -455,7 +456,7 @@ update winMVar inc event = do
             Nothing -> pure ()
             Just d -> do
                 #hsbk % cdLens d .= round (u * x - l * (x - 1))
-                updateColour $ dev.lifxDevice
+                updateColour dev.lifxDevice
               where
                 l = fromIntegral $ dev.cdLower d
                 u = fromIntegral $ dev.cdUpper d

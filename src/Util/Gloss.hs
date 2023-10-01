@@ -11,6 +11,7 @@ somehow avoid awkward `Either () err` (~ `err`) error type for `EitherT err IO`?
 -- | Wrapper around 'interactIO', making it easier to use a state+error-like monad.
 module Util.Gloss (interactM) where
 
+import Control.Monad
 import Control.Monad.Except
 import Control.Monad.Reader
 import Control.Monad.State
