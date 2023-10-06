@@ -177,17 +177,7 @@ initialWindowName :: Text
 initialWindowName = "Haskell LIFX Manager"
 
 setWindowTitle :: AppState -> Window.Window -> IO ()
-setWindowTitle AppState{..} w =
-    Window.setTitle w . T.unwords $
-        mconcat
-            [
-                [ (streamHead devices).deviceName
-                ]
-            ,
-                [ "-"
-                , "LIFX"
-                ]
-            ]
+setWindowTitle AppState{..} = flip Window.setTitle $ (streamHead devices).deviceName <> " - LIFX"
 
 main :: IO ()
 main = do
