@@ -183,10 +183,6 @@ setWindowTitle AppState{..} w =
             [
                 [ (streamHead devices).deviceName
                 ]
-            , mwhen
-                (not power)
-                [ "(powered off)"
-                ]
             ,
                 [ "-"
                 , "LIFX"
