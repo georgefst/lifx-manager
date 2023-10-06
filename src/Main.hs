@@ -473,10 +473,6 @@ streamHead = (Stream.!! 0)
 pPrintIndented :: (MonadIO m, Show a) => a -> m ()
 pPrintIndented = pPrintOpt CheckColorTty defaultOutputOptionsDarkBg{outputOptionsInitialIndent = 4}
 
--- TODO I've used this in a lot of projects by now - it should probably go in something like `extra`
-mwhen :: (Monoid p) => Bool -> p -> p
-mwhen b x = if b then x else mempty
-
 mapVector4 :: (Storable a) => (a -> a -> a -> a -> (a, a, a, a)) -> V.Vector a -> V.Vector a
 mapVector4 f v = flip (V.unfoldrExactN $ V.length v) (0, []) $ uncurry \n -> \case
     [] ->
