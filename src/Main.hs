@@ -237,7 +237,7 @@ main = do
                                             H -> prod ^. #features % #color
                                             S -> prod ^. #features % #color
                                             B -> True
-                                            K -> True
+                                            K -> kelvinLower /= kelvinUpper
                                         , cdLower = \case
                                             K -> kelvinLower
                                             _ -> minBound
