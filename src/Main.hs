@@ -319,25 +319,20 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
     bottomRow = pictures $ background : contents <> dividers
       where
         background = rectangleSolid w rectHeight & color (rgbToGloss $ toSRGB bgColour)
-        contents =
+        contents = zipWith (\n -> translate ((n + 0.5) * w' - w / 2) 0)
+            [0 ..]
             [ drawBitmap (if power then bmpPower else bmpPowerWhite)
-                & translate ((0 + 0.5) * w' - w / 2) 0
             , drawBitmap (if power then bmpRefresh else bmpRefreshWhite)
-                & translate ((1 + 0.5) * w' - w / 2) 0
             , drawBitmap (if power then bmpNext else bmpNextWhite)
-                & translate ((2 + 0.5) * w' - w / 2) 0
             ]
-        dividers =
-            [ rectangleSolid lineWidth rectHeight
-                & translate (0 * w' + w' - w / 2) 0
+        dividers = map
+            (\n -> rectangleSolid lineWidth rectHeight
                 & color (rgbToGloss $ toSRGB fgColour)
-            , rectangleSolid lineWidth rectHeight
-                & translate (1 * w' + w' - w / 2) 0
-                & color (rgbToGloss $ toSRGB fgColour)
-            ]
+                & translate (n * w' + w' - w / 2) 0
+            ) [0 .. genericLength contents - 1]
         bgColour = if power then Colour.white else Colour.black
         fgColour = if power then Colour.black else Colour.white
-        w' = w / 3
+        w' = w / genericLength contents
         drawBitmap bmp =
             bitmap bmp
                 & join
