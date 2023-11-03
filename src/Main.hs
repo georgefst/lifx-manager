@@ -369,6 +369,8 @@ update winMVar inc event = do
                 | y > 2 / rows -> setColour B
                 | y > 1 / rows -> setColour K
                 | y >= 0 ->
+                    -- TODO synchronise this with rendering
+                    let bottomRowCols = 3 in
                     if
                         | x > 3 / bottomRowCols -> #lastError .= Just (OutOfRangeX x)
                         | x > 2 / bottomRowCols -> nextDevice
@@ -377,7 +379,6 @@ update winMVar inc event = do
                         | otherwise -> #lastError .= Just (OutOfRangeX x)
                 | otherwise -> #lastError .= Just (OutOfRangeY y)
           where
-            bottomRowCols = 3
             rows = genericLength (filter cdSupported enumerate) + 1
             setColour d = do
                 #dimension .= Just d
