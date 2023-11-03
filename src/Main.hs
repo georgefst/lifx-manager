@@ -363,21 +363,20 @@ update winMVar inc event = do
         cdInc d = (cdUpper d - cdLower d) `div` inc
     case event of
         EventKey (MouseButton LeftButton) Down _ (transform -> (x, y)) ->
-            -- TODO Fourmolu should do better here - hang the `if` or at least avoid double indenting
             if
-                    | y > 5 / rows -> #lastError .= Just (OutOfRangeY y)
-                    | y > 4 / rows -> setColour H
-                    | y > 3 / rows -> setColour S
-                    | y > 2 / rows -> setColour B
-                    | y > 1 / rows -> setColour K
-                    | y >= 0 ->
-                        if
-                                | x > 3 / bottomRowCols -> #lastError .= Just (OutOfRangeX x)
-                                | x > 2 / bottomRowCols -> nextDevice
-                                | x > 1 / bottomRowCols -> refreshState dev
-                                | x > 0 / bottomRowCols -> togglePower dev
-                                | otherwise -> #lastError .= Just (OutOfRangeX x)
-                    | otherwise -> #lastError .= Just (OutOfRangeY y)
+                | y > 5 / rows -> #lastError .= Just (OutOfRangeY y)
+                | y > 4 / rows -> setColour H
+                | y > 3 / rows -> setColour S
+                | y > 2 / rows -> setColour B
+                | y > 1 / rows -> setColour K
+                | y >= 0 ->
+                    if
+                        | x > 3 / bottomRowCols -> #lastError .= Just (OutOfRangeX x)
+                        | x > 2 / bottomRowCols -> nextDevice
+                        | x > 1 / bottomRowCols -> refreshState dev
+                        | x > 0 / bottomRowCols -> togglePower dev
+                        | otherwise -> #lastError .= Just (OutOfRangeX x)
+                | otherwise -> #lastError .= Just (OutOfRangeY y)
           where
             bottomRowCols = 3
             rows = genericLength (filter cdSupported enumerate) + 1

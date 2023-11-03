@@ -21,7 +21,7 @@ import Data.Void
 import Graphics.Gloss
 import Graphics.Gloss.Interface.IO.Interact
 
-class MonadIO m => MonadGloss m where
+class (MonadIO m) => MonadGloss m where
     type World m
     type Error m
     runUpdate :: (Error m -> m a) -> m a -> World m -> IO (World m, a)
@@ -64,7 +64,7 @@ instance (MonadGloss m) => MonadGloss (StateT s m) where
     initWorld = (,) <$> lift initWorld <*> get
 
 interactM ::
-    MonadGloss m =>
+    (MonadGloss m) =>
     (m (World m) -> IO (World m)) ->
     Display ->
     Color ->
