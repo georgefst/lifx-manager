@@ -401,7 +401,7 @@ update inc event = do
             #dimension .= Nothing
         EventMotion (transform -> (x, _y)) ->
             setColourFromX dev' x
-        EventKey (Char 'l') Down _ _ -> do
+        EventKey (Char 'l') Down _ _ ->
             setDevice if succ currentDevice == length devices then 0 else succ currentDevice
         EventKey (Char 'r') Down _ _ ->
             refreshState dev
