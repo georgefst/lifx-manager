@@ -316,26 +316,25 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
                                 ]
                         else rectangleSolid lineWidth rectHeight
                 ]
-    bottomRow =
-        pictures $
-            ( rectangleSolid w rectHeight
-                & color (rgbToGloss $ toSRGB bgColour)
-            )
-                : [ drawBitmap (if power then bmpPower else bmpPowerWhite)
-                        & translate (-w') 0
-                  , drawBitmap (if power then bmpRefresh else bmpRefreshWhite)
-                        & translate 0 0
-                  , drawBitmap (if power then bmpNext else bmpNextWhite)
-                        & translate w' 0
-                  ]
-                    <> [ rectangleSolid lineWidth rectHeight
-                            & translate (-w' / 2) 0
-                            & color (rgbToGloss $ toSRGB fgColour)
-                       , rectangleSolid lineWidth rectHeight
-                            & translate (w' / 2) 0
-                            & color (rgbToGloss $ toSRGB fgColour)
-                       ]
+    bottomRow = pictures $ background : contents <> dividers
       where
+        background = rectangleSolid w rectHeight & color (rgbToGloss $ toSRGB bgColour)
+        contents =
+            [ drawBitmap (if power then bmpPower else bmpPowerWhite)
+                & translate (-w') 0
+            , drawBitmap (if power then bmpRefresh else bmpRefreshWhite)
+                & translate 0 0
+            , drawBitmap (if power then bmpNext else bmpNextWhite)
+                & translate w' 0
+            ]
+        dividers =
+            [ rectangleSolid lineWidth rectHeight
+                & translate (-w' / 2) 0
+                & color (rgbToGloss $ toSRGB fgColour)
+            , rectangleSolid lineWidth rectHeight
+                & translate (w' / 2) 0
+                & color (rgbToGloss $ toSRGB fgColour)
+            ]
         bgColour = if power then Colour.white else Colour.black
         fgColour = if power then Colour.black else Colour.white
         w' = w / 3
