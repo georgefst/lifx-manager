@@ -370,13 +370,13 @@ update winMVar inc event = do
                 | y > 1 / rows -> setColour K
                 | y >= 0 ->
                     -- TODO synchronise this with rendering
-                    let bottomRowCols = 3 in
-                    if
-                        | x > 3 / bottomRowCols -> #lastError .= Just (OutOfRangeX x)
-                        | x > 2 / bottomRowCols -> nextDevice
-                        | x > 1 / bottomRowCols -> refreshState dev
-                        | x > 0 / bottomRowCols -> togglePower dev
-                        | otherwise -> #lastError .= Just (OutOfRangeX x)
+                    let bottomRowCols = 3
+                     in if
+                            | x > 3 / bottomRowCols -> #lastError .= Just (OutOfRangeX x)
+                            | x > 2 / bottomRowCols -> nextDevice
+                            | x > 1 / bottomRowCols -> refreshState dev
+                            | x > 0 / bottomRowCols -> togglePower dev
+                            | otherwise -> #lastError .= Just (OutOfRangeX x)
                 | otherwise -> #lastError .= Just (OutOfRangeY y)
           where
             rows = genericLength (filter cdSupported enumerate) + 1
