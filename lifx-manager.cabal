@@ -44,7 +44,6 @@ executable lifx-manager
         safe,
         sdl2-ttf,
         sdl2,
-        streams,
         template-haskell,
         text,
         time,

@@ -12,14 +12,13 @@ import Data.Coerce
 import Data.Colour.Names qualified as Colour
 import Data.Colour.RGBSpace
 import Data.Colour.SRGB (toSRGB, toSRGB24)
+import Data.Foldable
 import Data.Function
 import Data.List.Extra
-import Data.List.NonEmpty (nonEmpty)
+import Data.List.NonEmpty (NonEmpty, nonEmpty)
 import Data.List.NonEmpty qualified as NE
 import Data.Maybe
 import Data.Optics.Operators
-import Data.Stream.Infinite (Stream)
-import Data.Stream.Infinite qualified as Stream
 import Data.Text qualified as T
 import Data.Traversable
 import Data.Tuple.Extra hiding (first)
@@ -109,7 +108,9 @@ data AppState = AppState
     , power :: Bool
     , dimension :: Maybe ColourDimension
     -- ^ Which axis, if any, we are currently moving.
-    , devices :: Stream Device'
+    , currentDevice :: Int
+    , -- TODO we should really use a data structure with constant-time indexing
+      devices :: NonEmpty Device'
     -- ^ All devices. Head is the active device.
     , windowWidth :: Float
     , windowHeight :: Float
@@ -163,8 +164,6 @@ bmpRefresh = loadBsBmp (toSRGB24 (Colour.black :: Colour Double)) iconRefresh
 bmpPower, bmpPowerWhite :: BitmapData
 bmpPower = loadBsBmp (toSRGB24 (Colour.black :: Colour Double)) iconPower
 bmpPowerWhite = loadBsBmp (toSRGB24 (Colour.white :: Colour Double)) iconPower
-bmpNext :: BitmapData
-bmpNext = loadBsBmp (toSRGB24 (Colour.black :: Colour Double)) iconNext
 
 windowName :: Text
 windowName = "LIFX"
@@ -215,8 +214,8 @@ main = do
     let s0 =
             AppState
                 { dimension = Nothing
+                , currentDevice = 0
                 , devices =
-                    Stream.cycle $
                         devs
                             <&> \(lightState, lifxDevice, prod) ->
                                 let (kelvinLower, kelvinUpper) =
@@ -280,8 +279,7 @@ main = do
 
 render :: Font.Font -> Float -> Int -> AppState -> IO Picture
 render font lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, windowHeight = h, ..} = do
-    let deviceList = let d0 = Stream.head devices in d0 : Stream.takeWhile (((/=) `on` (deviceAddress . (.lifxDevice))) d0) (Stream.tail devices) -- TODO kind of a hack
-    deviceTexts <- for deviceList $ fmap snd . bitmapOfSurface Cache <=< Font.blended font 0 . (.deviceName)
+    deviceTexts <- fmap toList $ for devices $ fmap snd . bitmapOfSurface Cache <=< Font.blended font 0 . (.deviceName)
     let normalRow d =
             let l = fromIntegral $ dev.cdLower d
                 u = fromIntegral $ dev.cdUpper d
@@ -325,7 +323,6 @@ render font lineWidthProportion (fromIntegral -> columns) AppState{windowWidth =
                             , drawBitmap bmpPowerWhite
                             ]
                 , drawBitmap bmpRefresh
-                , drawBitmap bmpNext
                 , pictures $ zipWith (\n -> translate 0 (rectHeight / 2 - (n + 0.5) * h')) [0 ..] deviceTexts
                 ]
               where
@@ -336,7 +333,7 @@ render font lineWidthProportion (fromIntegral -> columns) AppState{windowWidth =
                     & join
                         scale
                         (uncurry min (bimap (w' /) (rectHeight /) . both fromIntegral $ bitmapSize bmp))
-        dev = streamHead devices
+        dev = devices NE.!! currentDevice
         cdRows = map normalRow (filter dev.cdSupported enumerate) <> [bottomRow]
         rows = fromIntegral $ length cdRows
         ys = [rows / 2, rows / 2 - 1 .. -rows / 2]
@@ -355,8 +352,10 @@ update :: Word16 -> Event -> StateT AppState Lifx ()
 update inc event = do
     w <- use #windowWidth
     h <- use #windowHeight
-    dev'@Device'{lifxDevice = dev, cdLower, cdUpper, cdSupported} <- streamHead <$> use #devices
-    let transform = bimap (f . (/ w)) (f . (/ h))
+    devices <- toList <$> use #devices
+    currentDevice <- use #currentDevice
+    let dev'@Device'{lifxDevice = dev, cdLower, cdUpper, cdSupported} = devices !! currentDevice
+        transform = bimap (f . (/ w)) (f . (/ h))
           where
             f = clamp (0, 1) . (+ 0.5)
         cdInc d = (cdUpper d - cdLower d) `div` inc
@@ -370,11 +369,10 @@ update inc event = do
                 | y > 1 / rows -> setColour K
                 | y >= 0 ->
                     -- TODO synchronise this with rendering
-                    let bottomRowCols = 4
+                    let bottomRowCols = 3
                      in if
-                            | x > 4 / bottomRowCols -> #lastError .= Just (OutOfRangeX x)
-                            | x > 3 / bottomRowCols -> pure () -- TODO switch to device, without having to cycle
-                            | x > 2 / bottomRowCols -> nextDevice
+                            | x > 3 / bottomRowCols -> #lastError .= Just (OutOfRangeX x)
+                            | x > 2 / bottomRowCols -> setDevice (floor $ y * rows * genericLength devices)
                             | x > 1 / bottomRowCols -> refreshState dev
                             | x > 0 / bottomRowCols -> togglePower dev
                             | otherwise -> #lastError .= Just (OutOfRangeX x)
@@ -403,8 +401,8 @@ update inc event = do
             #dimension .= Nothing
         EventMotion (transform -> (x, _y)) ->
             setColourFromX dev' x
-        EventKey (Char 'l') Down _ _ ->
-            nextDevice
+        EventKey (Char 'l') Down _ _ -> do
+            setDevice if succ currentDevice == length devices then 0 else succ currentDevice
         EventKey (Char 'r') Down _ _ ->
             refreshState dev
         EventResize (w', h') -> do
@@ -412,12 +410,13 @@ update inc event = do
             #windowHeight .= fromIntegral h'
         _ -> pure ()
   where
-    nextDevice = do
-        Device'{..} <- streamHead . Stream.tail <$> use #devices
+    setDevice n = do
+        ds <- use #devices
+        let Device'{..} = ds NE.!! n
         success <-
             (refreshState lifxDevice >> pure True)
                 `catchError` \e -> throwError e >> pure False
-        when success $ #devices %= Stream.tail
+        when success $ #currentDevice .= n
     updateColour dev = sendMessage dev . flip SetColor 0 =<< use #hsbk
     refreshState dev = do
         #lastError .= Nothing
@@ -456,10 +455,6 @@ minKelvin :: (Num a) => a
 minKelvin = 1500
 maxKelvin :: (Num a) => a
 maxKelvin = 9000
-
--- TODO for some reason, there is no Stream.head: https://github.com/ekmett/streams/pull/19
-streamHead :: Stream a -> a
-streamHead = (Stream.!! 0)
 
 pPrintIndented :: (MonadIO m, Show a) => a -> m ()
 pPrintIndented = pPrintOpt CheckColorTty defaultOutputOptionsDarkBg{outputOptionsInitialIndent = 4}

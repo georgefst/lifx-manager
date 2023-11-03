@@ -11,5 +11,3 @@ iconRefresh :: ByteString
 iconRefresh = $(embed "noun-refresh-89040.png")
 iconPower :: ByteString
 iconPower = $(embed "noun-power-89049.png")
-iconNext :: ByteString
-iconNext = $(embed "noun-right-89087.png")
