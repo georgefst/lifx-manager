@@ -12,7 +12,7 @@ import Data.Coerce
 import Data.Colour.Names qualified as Colour
 import Data.Colour.RGBSpace
 import Data.Colour.SRGB (toSRGB, toSRGB24)
-import Data.Composition
+import Data.Function
 import Data.List.Extra
 import Data.List.NonEmpty (nonEmpty)
 import Data.List.NonEmpty qualified as NE
@@ -21,7 +21,7 @@ import Data.Optics.Operators
 import Data.Stream.Infinite (Stream)
 import Data.Stream.Infinite qualified as Stream
 import Data.Text qualified as T
-import Data.Text.IO qualified as T
+import Data.Traversable
 import Data.Tuple.Extra hiding (first)
 import Data.Vector.Storable qualified as V
 import Data.Void
@@ -31,6 +31,7 @@ import Foreign (Storable)
 import Graphics.Gloss
 import Graphics.Gloss.Interface.Environment
 import Graphics.Gloss.Interface.IO.Interact
+import Graphics.Gloss.SDL.Surface
 import Lifx.Internal.Colour (hsbkToRgb)
 import Lifx.Internal.ProductInfoMap qualified
 import Lifx.Lan
@@ -40,8 +41,9 @@ import OS.Window qualified as Window
 import Optics hiding (both)
 import Optics.State.Operators
 import Options.Generic hiding (Product, unwrap)
+import SDL.Font qualified as Font
 import System.Exit
-import System.Timeout
+import System.Process (readProcess)
 import Text.Pretty.Simple hiding (Color)
 import Util.Gloss
 
@@ -166,15 +168,8 @@ bmpNext, bmpNextWhite :: BitmapData
 bmpNext = loadBsBmp (toSRGB24 (Colour.black :: Colour Double)) iconNext
 bmpNextWhite = loadBsBmp (toSRGB24 (Colour.white :: Colour Double)) iconNext
 
-{- | The value of this doesn't really matter since it gets overwritten near-instantly at startup.
-But, since we use `Window.findByName`, we should try to make sure other windows are unlikely to share it.
-On some OSs, this may also remain the window "name" (semantic), while we only change the "title" (visual).
--}
-initialWindowName :: Text
-initialWindowName = "Haskell LIFX Manager"
-
-setWindowTitle :: AppState -> Window.Window -> IO ()
-setWindowTitle AppState{..} = flip Window.setTitle $ (streamHead devices).deviceName <> " - LIFX"
+windowName :: Text
+windowName = "LIFX"
 
 main :: IO ()
 main = do
@@ -183,6 +178,8 @@ main = do
     let windowWidth = screenWidth * unDefValue opts.width
         windowHeight = screenHeight * unDefValue opts.height
         lifxTimeout = unDefValue opts.timeout * 1_000_000
+    fontFile <- readProcess "fc-match" ["-f%{file}"] []
+    font <- Font.initialize >> Font.load fontFile 32
     devs <-
         if opts.fake
             then
@@ -254,7 +251,7 @@ main = do
                     . flip evalStateT s0
             )
             ( InWindow
-                (T.unpack initialWindowName)
+                (T.unpack windowName)
                 ( round windowWidth
                 , round windowHeight
                 )
@@ -263,8 +260,8 @@ main = do
                 )
             )
             white
-            (render (unDefValue opts.lineWidthProportion) (unDefValue opts.columns) . snd)
-            (coerce update window (unDefValue opts.inc))
+            (render font (unDefValue opts.lineWidthProportion) (unDefValue opts.columns) . snd)
+            (coerce update (unDefValue opts.inc))
             ( either
                 ( \case
                     RecvTimeout -> #lastError .= Just UnresponsiveDevice
@@ -275,16 +272,17 @@ main = do
                 pure
             )
             ( const do
-                w <- Window.findByName initialWindowName
+                w <- Window.findByName windowName
                 Window.setIcon w lifxLogo
-                setWindowTitle s0 w
                 putMVar window w
             )
   where
     lifxFailure t err = putStrLn (t <> ": " <> show err) >> exitFailure
 
-render :: Float -> Int -> AppState -> IO Picture
-render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, windowHeight = h, ..} = do
+render :: Font.Font -> Float -> Int -> AppState -> IO Picture
+render font lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, windowHeight = h, ..} = do
+    let deviceList = let d0 = Stream.head devices in d0 : Stream.takeWhile (((/=) `on` (deviceAddress . (.lifxDevice))) d0) (Stream.tail devices) -- TODO kind of a hack
+    deviceTexts <- for deviceList $ fmap snd . bitmapOfSurface Cache <=< Font.blended font 0 . (.deviceName)
     let normalRow d =
             let l = fromIntegral $ dev.cdLower d
                 u = fromIntegral $ dev.cdUpper d
@@ -318,6 +316,11 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
                     [ drawBitmap (if power then bmpPower else bmpPowerWhite)
                     , drawBitmap (if power then bmpRefresh else bmpRefreshWhite)
                     , drawBitmap (if power then bmpNext else bmpNextWhite)
+                    , pictures $
+                        zipWith
+                            (\n -> translate 0 (rectHeight / 2 - (rectHeight / genericLength deviceTexts) / 2 - n * (rectHeight / genericLength deviceTexts)))
+                            [0 ..]
+                            deviceTexts
                     ]
             dividers =
                 map
@@ -350,8 +353,8 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
             <> map (\y -> translate 0 (y * rectHeight) $ rectangleSolid w lineWidth) ys
             <> maybe [] (pure . color red . scale 0.2 0.2 . text . show) lastError
 
-update :: MVar Window.Window -> Word16 -> Event -> StateT AppState Lifx ()
-update winMVar inc event = do
+update :: Word16 -> Event -> StateT AppState Lifx ()
+update inc event = do
     w <- use #windowWidth
     h <- use #windowHeight
     dev'@Device'{lifxDevice = dev, cdLower, cdUpper, cdSupported} <- streamHead <$> use #devices
@@ -369,9 +372,10 @@ update winMVar inc event = do
                 | y > 1 / rows -> setColour K
                 | y >= 0 ->
                     -- TODO synchronise this with rendering
-                    let bottomRowCols = 3
+                    let bottomRowCols = 4
                      in if
-                            | x > 3 / bottomRowCols -> #lastError .= Just (OutOfRangeX x)
+                            | x > 4 / bottomRowCols -> #lastError .= Just (OutOfRangeX x)
+                            | x > 3 / bottomRowCols -> pure () -- TODO switch to device, without having to cycle
                             | x > 2 / bottomRowCols -> nextDevice
                             | x > 1 / bottomRowCols -> refreshState dev
                             | x > 0 / bottomRowCols -> togglePower dev
@@ -415,25 +419,16 @@ update winMVar inc event = do
         success <-
             (refreshState lifxDevice >> pure True)
                 `catchError` \e -> throwError e >> pure False
-        liftIO $ T.putStrLn $ "Switching device: " <> deviceName
-        when success $ do
-            #devices %= Stream.tail
-            s <- get
-            liftIO $
-                setWindowTitle s
-                    =<< maybe (putStrLn "Initialisation failure" >> exitFailure) pure
-                    =<< timeout 1_000_000 (readMVar winMVar)
+        when success $ #devices %= Stream.tail
     updateColour dev = sendMessage dev . flip SetColor 0 =<< use #hsbk
     refreshState dev = do
         #lastError .= Nothing
         LightState{hsbk, power} <- sendMessage dev GetColor
         #hsbk .= hsbk
         #power .= (power /= 0)
-        join $ gets (liftIO .: setWindowTitle) <*> liftIO (readMVar winMVar)
     togglePower dev = do
         p <- not <$> use #power
         #power .= p
-        join $ gets (liftIO .: setWindowTitle) <*> liftIO (readMVar winMVar)
         sendMessage dev $ SetPower p
     setColourFromX dev x =
         use #dimension >>= \case
