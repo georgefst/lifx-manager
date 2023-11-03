@@ -321,18 +321,18 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
         background = rectangleSolid w rectHeight & color (rgbToGloss $ toSRGB bgColour)
         contents =
             [ drawBitmap (if power then bmpPower else bmpPowerWhite)
-                & translate (-w') 0
+                & translate ((0 + 0.5) * w' - w / 2) 0
             , drawBitmap (if power then bmpRefresh else bmpRefreshWhite)
-                & translate 0 0
+                & translate ((1 + 0.5) * w' - w / 2) 0
             , drawBitmap (if power then bmpNext else bmpNextWhite)
-                & translate w' 0
+                & translate ((2 + 0.5) * w' - w / 2) 0
             ]
         dividers =
             [ rectangleSolid lineWidth rectHeight
-                & translate (-w' / 2) 0
+                & translate (0 * w' + w' - w / 2) 0
                 & color (rgbToGloss $ toSRGB fgColour)
             , rectangleSolid lineWidth rectHeight
-                & translate (w' / 2) 0
+                & translate (1 * w' + w' - w / 2) 0
                 & color (rgbToGloss $ toSRGB fgColour)
             ]
         bgColour = if power then Colour.white else Colour.black
