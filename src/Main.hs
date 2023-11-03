@@ -158,15 +158,13 @@ loadBsBmp c =
         ImageRGBA8 x -> pure x
         _ -> Left ()
 
-bmpRefresh, bmpRefreshWhite :: BitmapData
+bmpRefresh :: BitmapData
 bmpRefresh = loadBsBmp (toSRGB24 (Colour.black :: Colour Double)) iconRefresh
-bmpRefreshWhite = loadBsBmp (toSRGB24 (Colour.white :: Colour Double)) iconRefresh
 bmpPower, bmpPowerWhite :: BitmapData
 bmpPower = loadBsBmp (toSRGB24 (Colour.black :: Colour Double)) iconPower
 bmpPowerWhite = loadBsBmp (toSRGB24 (Colour.white :: Colour Double)) iconPower
-bmpNext, bmpNextWhite :: BitmapData
+bmpNext :: BitmapData
 bmpNext = loadBsBmp (toSRGB24 (Colour.black :: Colour Double)) iconNext
-bmpNextWhite = loadBsBmp (toSRGB24 (Colour.white :: Colour Double)) iconNext
 
 windowName :: Text
 windowName = "LIFX"
@@ -306,16 +304,21 @@ render font lineWidthProportion (fromIntegral -> columns) AppState{windowWidth =
                                     ]
                             else rectangleSolid lineWidth rectHeight
                     ]
-        bottomRow = pictures $ background : contents <> dividers
+        bottomRow = pictures $ contents <> dividers
           where
-            background = rectangleSolid w rectHeight & color (rgbToGloss $ toSRGB bgColour)
             contents =
                 zipWith
                     (\n -> translate ((n + 0.5) * w' - w / 2) 0)
                     [0 ..]
-                    [ drawBitmap (if power then bmpPower else bmpPowerWhite)
-                    , drawBitmap (if power then bmpRefresh else bmpRefreshWhite)
-                    , drawBitmap (if power then bmpNext else bmpNextWhite)
+                    [ if power
+                        then drawBitmap bmpPower
+                        else
+                            pictures
+                                [ rectangleSolid w' rectHeight & color (rgbToGloss $ toSRGB Colour.black)
+                                , drawBitmap bmpPowerWhite
+                                ]
+                    , drawBitmap bmpRefresh
+                    , drawBitmap bmpNext
                     , pictures $
                         zipWith
                             (\n -> translate 0 (rectHeight / 2 - (rectHeight / genericLength deviceTexts) / 2 - n * (rectHeight / genericLength deviceTexts)))
@@ -326,12 +329,10 @@ render font lineWidthProportion (fromIntegral -> columns) AppState{windowWidth =
                 map
                     ( \n ->
                         rectangleSolid lineWidth rectHeight
-                            & color (rgbToGloss $ toSRGB fgColour)
+                            & color (rgbToGloss $ toSRGB Colour.black)
                             & translate ((n + 1) * w' - w / 2) 0
                     )
                     [0 .. genericLength contents - 1]
-            bgColour = if power then Colour.white else Colour.black
-            fgColour = if power then Colour.black else Colour.white
             w' = w / genericLength contents
             drawBitmap bmp =
                 bitmap bmp
