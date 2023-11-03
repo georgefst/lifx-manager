@@ -332,7 +332,7 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
                 ( \n ->
                     rectangleSolid lineWidth rectHeight
                         & color (rgbToGloss $ toSRGB fgColour)
-                        & translate (n * w' + w' - w / 2) 0
+                        & translate ((n + 1) * w' - w / 2) 0
                 )
                 [0 .. genericLength contents - 1]
         bgColour = if power then Colour.white else Colour.black
