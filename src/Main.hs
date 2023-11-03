@@ -220,14 +220,15 @@ main = do
                         devs
                             <&> \(lightState, lifxDevice, prod) ->
                                 let (kelvinLower, kelvinUpper) =
-                                        fromMaybe (minKelvin, maxKelvin) $
-                                            prod ^. #features % #temperatureRange
+                                        fromMaybe
+                                            (minKelvin, maxKelvin)
+                                            prod.features.temperatureRange
                                  in Device'
                                         { lifxDevice
-                                        , deviceName = lightState ^. #label
+                                        , deviceName = lightState.label
                                         , cdSupported = \case
-                                            H -> prod ^. #features % #color
-                                            S -> prod ^. #features % #color
+                                            H -> prod.features.color
+                                            S -> prod.features.color
                                             B -> True
                                             K -> kelvinLower /= kelvinUpper
                                         , cdLower = \case
