@@ -326,12 +326,10 @@ render font lineWidthProportion (fromIntegral -> columns) AppState{windowWidth =
                             ]
                 , drawBitmap bmpRefresh
                 , drawBitmap bmpNext
-                , pictures $
-                    zipWith
-                        (\n -> translate 0 (rectHeight / 2 - (rectHeight / genericLength deviceTexts) / 2 - n * (rectHeight / genericLength deviceTexts)))
-                        [0 ..]
-                        deviceTexts
+                , pictures $ zipWith (\n -> translate 0 (rectHeight / 2 - (n + 0.5) * h')) [0 ..] deviceTexts
                 ]
+              where
+                h' = rectHeight / genericLength deviceTexts
             w' = w / genericLength contents
             drawBitmap bmp =
                 bitmap bmp
