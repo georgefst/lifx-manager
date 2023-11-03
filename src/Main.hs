@@ -317,21 +317,21 @@ render font lineWidthProportion (fromIntegral -> columns) AppState{windowWidth =
                 $ map Just contents
           where
             contents =
-                    [ if power
-                        then drawBitmap bmpPower
-                        else
-                            pictures
-                                [ rectangleSolid w' rectHeight & color (rgbToGloss $ toSRGB Colour.black)
-                                , drawBitmap bmpPowerWhite
-                                ]
-                    , drawBitmap bmpRefresh
-                    , drawBitmap bmpNext
-                    , pictures $
-                        zipWith
-                            (\n -> translate 0 (rectHeight / 2 - (rectHeight / genericLength deviceTexts) / 2 - n * (rectHeight / genericLength deviceTexts)))
-                            [0 ..]
-                            deviceTexts
-                    ]
+                [ if power
+                    then drawBitmap bmpPower
+                    else
+                        pictures
+                            [ rectangleSolid w' rectHeight & color (rgbToGloss $ toSRGB Colour.black)
+                            , drawBitmap bmpPowerWhite
+                            ]
+                , drawBitmap bmpRefresh
+                , drawBitmap bmpNext
+                , pictures $
+                    zipWith
+                        (\n -> translate 0 (rectHeight / 2 - (rectHeight / genericLength deviceTexts) / 2 - n * (rectHeight / genericLength deviceTexts)))
+                        [0 ..]
+                        deviceTexts
+                ]
             w' = w / genericLength contents
             drawBitmap bmp =
                 bitmap bmp
