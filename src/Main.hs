@@ -333,7 +333,7 @@ render font lineWidthProportion (fromIntegral -> columns) AppState{windowWidth =
                             & color (rgbToGloss $ toSRGB Colour.black)
                             & translate ((n + 1) * w' - w / 2) 0
                     )
-                    [0 .. genericLength contents - 1]
+                    [0 .. genericLength contents - 2]
             w' = w / genericLength contents
             drawBitmap bmp =
                 bitmap bmp
