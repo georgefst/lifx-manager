@@ -305,12 +305,18 @@ render font lineWidthProportion (fromIntegral -> columns) AppState{windowWidth =
                                     ]
                             else rectangleSolid lineWidth rectHeight
                     ]
-        bottomRow = pictures $ contents <> dividers
+        bottomRow =
+            pictures
+                $ zipWith
+                    ( \n ->
+                        translate ((n / 2 + 0.5) * w' - w / 2) 0
+                            . fromMaybe (rectangleSolid lineWidth rectHeight & color (rgbToGloss $ toSRGB Colour.black))
+                    )
+                    [0 ..]
+                $ intersperse Nothing
+                $ map Just contents
           where
             contents =
-                zipWith
-                    (\n -> translate ((n + 0.5) * w' - w / 2) 0)
-                    [0 ..]
                     [ if power
                         then drawBitmap bmpPower
                         else
@@ -326,14 +332,6 @@ render font lineWidthProportion (fromIntegral -> columns) AppState{windowWidth =
                             [0 ..]
                             deviceTexts
                     ]
-            dividers =
-                map
-                    ( \n ->
-                        rectangleSolid lineWidth rectHeight
-                            & color (rgbToGloss $ toSRGB Colour.black)
-                            & translate ((n + 1) * w' - w / 2) 0
-                    )
-                    [0 .. genericLength contents - 2]
             w' = w / genericLength contents
             drawBitmap bmp =
                 bitmap bmp
