@@ -323,6 +323,7 @@ render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, w
             , drawBitmap (if power then bmpPower else bmpPowerWhite)
                 & translate (-w') 0
             , drawBitmap (if power then bmpRefresh else bmpRefreshWhite)
+                & translate 0 0
             , drawBitmap (if power then bmpNext else bmpNextWhite)
                 & translate w' 0
             , rectangleSolid lineWidth rectHeight
