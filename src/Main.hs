@@ -36,6 +36,7 @@ import Graphics.Gloss.SDL.Surface
 import Lifx.Internal.Colour (hsbkToRgb)
 import Lifx.Internal.ProductInfoMap qualified
 import Lifx.Lan
+import Lifx.Lan qualified as Lifx
 import Lifx.Lan.Internal (LifxT (LifxT))
 import Network.Socket
 import OS.Window qualified as Window
@@ -131,7 +132,32 @@ data Error
     | OutOfRangeX Float
     | OutOfRangeY Float
     | BadDeviceIndex Word8
+    | RescanFailed
+    | RescanCurrentDeviceNotFound
     deriving (Show)
+
+makeDevice' :: LightState -> Device -> Lifx.Product -> Device'
+makeDevice' lightState lifxDevice prod =
+    Device'
+        { lifxDevice
+        , deviceName = lightState.label
+        , cdSupported = \case
+            H -> prod.features.color
+            S -> prod.features.color
+            B -> True
+            K -> kelvinLower /= kelvinUpper
+        , cdLower = \case
+            K -> kelvinLower
+            _ -> minBound
+        , cdUpper = \case
+            K -> kelvinUpper
+            _ -> maxBound
+        }
+  where
+    (kelvinLower, kelvinUpper) =
+        fromMaybe
+            (minKelvin, maxKelvin)
+            prod.features.temperatureRange
 
 -- TODO we'd ideally use gloss-juicy here, but that library is unfortunately unmaintained and slightly rubbish:
 -- https://github.com/alpmestan/gloss-juicy/issues/12
@@ -200,14 +226,7 @@ main = do
                         =<< either (lifxFailure "LIFX failure during discovery") pure
                         =<< runLifxT
                             lifxTimeout
-                            ( discover
-                                >>= traverse
-                                    ( \dev ->
-                                        (,dev,)
-                                            <$> sendMessage dev GetColor
-                                            <*> getProductInfo dev
-                                    )
-                            )
+                            (getExtraLightInfo =<< discover)
     let LightState{hsbk, power} = fst3 $ NE.head devs
     putStrLn "Found devices:"
     pPrintIndented $ NE.toList devs
@@ -215,29 +234,7 @@ main = do
     let s0 =
             AppState
                 { dimension = Nothing
-                , devices =
-                    Z.fromNonEmpty $
-                        devs
-                            <&> \(lightState, lifxDevice, prod) ->
-                                let (kelvinLower, kelvinUpper) =
-                                        fromMaybe
-                                            (minKelvin, maxKelvin)
-                                            prod.features.temperatureRange
-                                 in Device'
-                                        { lifxDevice
-                                        , deviceName = lightState.label
-                                        , cdSupported = \case
-                                            H -> prod.features.color
-                                            S -> prod.features.color
-                                            B -> True
-                                            K -> kelvinLower /= kelvinUpper
-                                        , cdLower = \case
-                                            K -> kelvinLower
-                                            _ -> minBound
-                                        , cdUpper = \case
-                                            K -> kelvinUpper
-                                            _ -> maxBound
-                                        }
+                , devices = Z.fromNonEmpty $ uncurry3 makeDevice' <$> devs
                 , lastError = Nothing
                 , power = power /= 0
                 , ..
@@ -391,7 +388,7 @@ update inc event = do
                                     case applyN n Z.right (Z.start devices) of
                                         Just ds' -> setDevices ds'
                                         Nothing -> #lastError ?= BadDeviceIndex n
-                            | x > 1 / bottomRowCols -> refreshState dev
+                            | x > 1 / bottomRowCols -> rescan
                             | x > 0 / bottomRowCols -> togglePower dev
                             | otherwise -> #lastError ?= OutOfRangeX x
                 | otherwise -> #lastError ?= OutOfRangeY y
@@ -422,6 +419,8 @@ update inc event = do
         EventKey (Char 'l') Down _ _ ->
             setDevices $ fromMaybe (Z.start devices) $ Z.right devices
         EventKey (Char 'r') Down _ _ ->
+            rescan
+        EventKey (Char 'f') Down _ _ ->
             refreshState dev
         EventResize (w', h') -> do
             #windowWidth .= fromIntegral w'
@@ -439,6 +438,21 @@ update inc event = do
         LightState{hsbk, power} <- sendMessage dev GetColor
         #hsbk .= hsbk
         #power .= (power /= 0)
+    rescan =
+        (fmap (fmap Z.fromNonEmpty . nonEmpty) . getExtraLightInfo =<< discoverDevices Nothing) >>= \case
+            Nothing -> #lastError ?= RescanFailed
+            Just ds -> do
+                #lastError .= Nothing
+                old <- (.deviceName) . Z.current <$> use #devices
+                dsz <-
+                    maybe
+                        (#lastError ?= RescanCurrentDeviceNotFound >> pure ds)
+                        pure
+                        (findRightZ ((== old) . (.label) . fst3) ds)
+                let LightState{hsbk, power} = fst3 $ Z.current dsz
+                #hsbk .= hsbk
+                #power .= (power /= 0)
+                #devices .= (uncurry3 makeDevice' <$> dsz)
     togglePower dev = do
         p <- not <$> use #power
         #power .= p
@@ -452,6 +466,15 @@ update inc event = do
               where
                 l = fromIntegral $ dev.cdLower d
                 u = fromIntegral $ dev.cdUpper d
+
+getExtraLightInfo :: (MonadLifx m) => [Device] -> m [(LightState, Device, Lifx.Product)]
+getExtraLightInfo =
+    traverse
+        ( \dev ->
+            (,dev,)
+                <$> sendMessage dev GetColor
+                <*> getProductInfo dev
+        )
 
 {- Util -}
 
@@ -499,3 +522,14 @@ instance Read IpV4 where
 applyN :: (Integral n, Monad f) => n -> (b -> f b) -> b -> f b
 applyN 0 _ = pure
 applyN n g = g <=< applyN (n - 1) g
+
+-- TODO upstream (first version, which is very similar to `findRight`, but we can't use as constructor isn't exported)
+findRightZ :: (a -> Bool) -> Z.Zipper a -> Maybe (Z.Zipper a)
+-- findRightZ target z@(Z.Zipper ps curr ns)
+--     | target curr = Just z
+--     | otherwise = case ns of
+--         [] -> Nothing
+--         (x : xs) -> findRightZ target (Z.Zipper (curr : ps) x xs)
+findRightZ target z
+    | target (Z.current z) = Just z
+    | otherwise = findRightZ target =<< Z.right z
