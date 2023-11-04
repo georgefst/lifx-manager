@@ -305,12 +305,13 @@ render font lineWidthProportion (fromIntegral -> columns) AppState{windowWidth =
                                     ]
                             else rectangleSolid lineWidth rectHeight
                     ]
+        bottomRowHeight = h / 4
         bottomRow =
             pictures
                 $ zipWith
                     ( \n ->
                         translate ((n / 2 + 0.5) * w' - w / 2) 0
-                            . fromMaybe (rectangleSolid lineWidth rectHeight & color (rgbToGloss $ toSRGB Colour.black))
+                            . fromMaybe (rectangleSolid lineWidth bottomRowHeight & color (rgbToGloss $ toSRGB Colour.black))
                     )
                     [0 ..]
                 $ intersperse Nothing
@@ -321,20 +322,20 @@ render font lineWidthProportion (fromIntegral -> columns) AppState{windowWidth =
                     then drawBitmap bmpPower
                     else
                         pictures
-                            [ rectangleSolid w' rectHeight & color (rgbToGloss $ toSRGB Colour.black)
+                            [ rectangleSolid w' bottomRowHeight & color (rgbToGloss $ toSRGB Colour.black)
                             , drawBitmap bmpPowerWhite
                             ]
                 , if scanning
                     then
                         pictures
-                            [ rectangleSolid w' rectHeight & color (rgbToGloss $ toSRGB Colour.black)
+                            [ rectangleSolid w' bottomRowHeight & color (rgbToGloss $ toSRGB Colour.black)
                             , drawBitmap bmpRefreshWhite
                             ]
                     else drawBitmap bmpRefresh
                 , pictures $
                     zipWith
                         ( \n p ->
-                            translate 0 (rectHeight / 2 - (n + 0.5) * h') $
+                            translate 0 (bottomRowHeight / 2 - (n + 0.5) * h') $
                                 pictures $
                                     mwhen
                                         (n == genericLength (Z.lefts devices))
@@ -347,26 +348,26 @@ render font lineWidthProportion (fromIntegral -> columns) AppState{windowWidth =
                         deviceTexts
                 ]
               where
-                h' = rectHeight / genericLength deviceTexts
+                h' = bottomRowHeight / genericLength deviceTexts
             w' = w / genericLength contents
             drawBitmap bmp =
                 bitmap bmp
                     & join
                         scale
-                        (uncurry min (bimap (w' /) (rectHeight /) . both fromIntegral $ bitmapSize bmp))
+                        (uncurry min (bimap (w' /) (bottomRowHeight /) . both fromIntegral $ bitmapSize bmp))
         dev = Z.current devices
-        cdRows = map normalRow (filter dev.cdSupported enumerate) <> [bottomRow]
+        cdRows = map normalRow (filter dev.cdSupported enumerate)
         rows = fromIntegral $ length cdRows
-        ys = [rows / 2, rows / 2 - 1 .. -rows / 2]
+        ys = [(rows - 1) / 2, (rows - 3) / 2 .. (1 - rows) / 2]
         lineWidth = min w h / lineWidthProportion
-        rectHeight = h / rows
+        rectHeight = (h - bottomRowHeight) / rows
         columnWidth = w / columns
     pure . pictures $
         zipWith
-            (translate 0 . (rectHeight *) . subtract 0.5)
-            ys
-            cdRows
-            <> map (\y -> translate 0 (y * rectHeight) $ rectangleSolid w lineWidth) ys
+            (translate 0 . (+ bottomRowHeight / 2) . (rectHeight *))
+            (ys <> [rows * (h / (2 * (bottomRowHeight - h)))])
+            (cdRows <> [bottomRow])
+            <> map (\y -> translate 0 ((y - 1 / 2) * rectHeight + bottomRowHeight / 2) $ rectangleSolid w lineWidth) ys
             <> maybe [] (pure . color red . scale 0.2 0.2 . text . show) lastError
 
 update :: Word16 -> Event -> StateT AppState Lifx ()
@@ -401,19 +402,20 @@ update inc event = do
         cdInc d = (cdUpper d - cdLower d) `div` inc
     case event of
         EventKey (MouseButton LeftButton) Down _ (transform -> (x, y)) ->
-            if
-                | y > 5 / rows -> #lastError ?= OutOfRangeY y
-                | y > 4 / rows -> setColour H
-                | y > 3 / rows -> setColour S
-                | y > 2 / rows -> setColour B
-                | y > 1 / rows -> setColour K
-                | y >= 0 ->
-                    -- TODO synchronise this with rendering
-                    let bottomRowCols = 3
-                     in if
+            -- TODO synchronise this with rendering
+            let bottomRowCols = 3
+                bottomRowHeight = 1 / 4
+             in if
+                    | y > bottomRowHeight + (4 / rows * (1 - bottomRowHeight)) -> #lastError ?= OutOfRangeY y
+                    | y > bottomRowHeight + (3 / rows * (1 - bottomRowHeight)) -> setColour H
+                    | y > bottomRowHeight + (2 / rows * (1 - bottomRowHeight)) -> setColour S
+                    | y > bottomRowHeight + (1 / rows * (1 - bottomRowHeight)) -> setColour B
+                    | y > bottomRowHeight + (0 / rows * (1 - bottomRowHeight)) -> setColour K
+                    | y >= 0 ->
+                        if
                             | x > 3 / bottomRowCols -> #lastError ?= OutOfRangeX x
                             | x > 2 / bottomRowCols ->
-                                let n = floor $ (1 - y * rows) * fromIntegral (length devices)
+                                let n = floor $ (1 - y / bottomRowHeight) * fromIntegral (length devices)
                                  in -- TODO we should really use a data structure with constant-time indexing
                                     case applyN n Z.right (Z.start devices) of
                                         Just ds' -> setDevices ds'
@@ -421,9 +423,9 @@ update inc event = do
                             | x > 1 / bottomRowCols -> rescan
                             | x > 0 / bottomRowCols -> togglePower dev
                             | otherwise -> #lastError ?= OutOfRangeX x
-                | otherwise -> #lastError ?= OutOfRangeY y
+                    | otherwise -> #lastError ?= OutOfRangeY y
           where
-            rows = genericLength (filter cdSupported enumerate) + 1
+            rows = genericLength (filter cdSupported enumerate)
             setColour d = do
                 #dimension ?= d
                 setColourFromX dev' x
