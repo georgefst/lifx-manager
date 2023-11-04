@@ -5,6 +5,7 @@ import Codec.Picture
 import Control.Concurrent
 import Control.Monad
 import Control.Monad.Except
+import Control.Monad.Extra (whenM)
 import Control.Monad.State
 import Data.Bifunctor
 import Data.ByteString (ByteString)
@@ -109,6 +110,7 @@ cdKeyUp = \case
 data AppState = AppState
     { hsbk :: HSBK
     , power :: Bool
+    , scanning :: Bool
     , dimension :: Maybe ColourDimension
     -- ^ Which axis, if any, we are currently moving.
     , devices :: Z.Zipper Device'
@@ -186,8 +188,9 @@ loadBsBmp c =
         ImageRGBA8 x -> pure x
         _ -> Left ()
 
-bmpRefresh :: BitmapData
+bmpRefresh, bmpRefreshWhite :: BitmapData
 bmpRefresh = loadBsBmp (toSRGB24 (Colour.black :: Colour Double)) iconRefresh
+bmpRefreshWhite = loadBsBmp (toSRGB24 (Colour.white :: Colour Double)) iconRefresh
 bmpPower, bmpPowerWhite :: BitmapData
 bmpPower = loadBsBmp (toSRGB24 (Colour.black :: Colour Double)) iconPower
 bmpPowerWhite = loadBsBmp (toSRGB24 (Colour.white :: Colour Double)) iconPower
@@ -237,6 +240,7 @@ main = do
                 , devices = Z.fromNonEmpty $ uncurry3 makeDevice' <$> devs
                 , lastError = Nothing
                 , power = power /= 0
+                , scanning = False
                 , ..
                 }
     absurd
@@ -320,7 +324,13 @@ render font lineWidthProportion (fromIntegral -> columns) AppState{windowWidth =
                             [ rectangleSolid w' rectHeight & color (rgbToGloss $ toSRGB Colour.black)
                             , drawBitmap bmpPowerWhite
                             ]
-                , drawBitmap bmpRefresh
+                , if scanning
+                    then
+                        pictures
+                            [ rectangleSolid w' rectHeight & color (rgbToGloss $ toSRGB Colour.black)
+                            , drawBitmap bmpRefreshWhite
+                            ]
+                    else drawBitmap bmpRefresh
                 , pictures $
                     zipWith
                         ( \n p ->
@@ -364,6 +374,10 @@ update inc event = do
     w <- use #windowWidth
     h <- use #windowHeight
     devices <- use #devices
+    -- TODO this is a bit of a hack - with `interactIO` we have no way to manually trigger updating
+    -- in practice this works because we always get a mouse/key up event after the one which set `scanning`
+    -- using an always-updating mode like `play` would be a significant performance hit
+    whenM (use #scanning) $ rescan' >> #scanning .= False
     let dev'@Device'{lifxDevice = dev, cdLower, cdUpper, cdSupported} = Z.current devices
         transform = bimap (f . (/ w)) (f . (/ h))
           where
@@ -438,7 +452,8 @@ update inc event = do
         LightState{hsbk, power} <- sendMessage dev GetColor
         #hsbk .= hsbk
         #power .= (power /= 0)
-    rescan =
+    rescan = #scanning .= True
+    rescan' =
         (fmap (fmap Z.fromNonEmpty . nonEmpty) . getExtraLightInfo =<< discoverDevices Nothing) >>= \case
             Nothing -> #lastError ?= RescanFailed
             Just ds -> do
