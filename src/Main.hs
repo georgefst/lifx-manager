@@ -19,6 +19,7 @@ import Data.List.NonEmpty (nonEmpty)
 import Data.List.NonEmpty qualified as NE
 import Data.List.NonEmpty.Zipper qualified as Z
 import Data.Maybe
+import Data.Monoid.Extra
 import Data.Optics.Operators
 import Data.Text qualified as T
 import Data.Traversable
@@ -323,7 +324,20 @@ render font lineWidthProportion (fromIntegral -> columns) AppState{windowWidth =
                             , drawBitmap bmpPowerWhite
                             ]
                 , drawBitmap bmpRefresh
-                , pictures $ zipWith (\n -> translate 0 (rectHeight / 2 - (n + 0.5) * h')) [0 ..] deviceTexts
+                , pictures $
+                    zipWith
+                        ( \n p ->
+                            translate 0 (rectHeight / 2 - (n + 0.5) * h') $
+                                pictures $
+                                    mwhen
+                                        (n == genericLength (Z.lefts devices))
+                                        [ rectangleSolid w' h' & color black
+                                        , rectangleSolid (w' - lineWidth * 2) (h' - lineWidth * 2) & color white
+                                        ]
+                                        <> [p]
+                        )
+                        [0 ..]
+                        deviceTexts
                 ]
               where
                 h' = rectHeight / genericLength deviceTexts
