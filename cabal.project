@@ -1,6 +1,6 @@
 packages: .
 
--- TODO https://gitlab.com/dpwiz/gloss-sdl2-surface is not on Hackage
+-- TODO not on Hackage - https://gitlab.com/dpwiz/gloss-sdl2-surface/-/issues/1
 -- and can't be used here directly because of missing .cabal file
 source-repository-package
     type: git
