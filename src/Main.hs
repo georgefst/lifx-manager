@@ -386,7 +386,7 @@ update inc event = do
                      in if
                             | x > 3 / bottomRowCols -> #lastError .= Just (OutOfRangeX x)
                             | x > 2 / bottomRowCols ->
-                                let n = floor $ y * rows * fromIntegral (length devices)
+                                let n = floor $ (1 - y * rows) * fromIntegral (length devices)
                                  in -- TODO we should really use a data structure with constant-time indexing
                                     case applyN n Z.right (Z.start devices) of
                                         Just ds' -> setDevices ds'
