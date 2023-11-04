@@ -378,9 +378,10 @@ update inc event = do
     -- in practice this works because we always get a mouse/key up event after the one which set `scanning`
     -- using an always-updating mode like `play` would be a significant performance hit
     whenM (use #scanning) do
-        (fmap (fmap Z.fromNonEmpty . nonEmpty) . getExtraLightInfo =<< discoverDevices Nothing) >>= \case
+        discoverDevices Nothing <&> nonEmpty >>= \case
             Nothing -> #lastError ?= RescanFailed
-            Just ds -> do
+            Just ds0 -> do
+                ds <- Z.fromNonEmpty <$> getExtraLightInfo ds0
                 #lastError .= Nothing
                 old <- (.deviceName) . Z.current <$> use #devices
                 dsz <-
@@ -482,7 +483,7 @@ update inc event = do
                 l = fromIntegral $ dev.cdLower d
                 u = fromIntegral $ dev.cdUpper d
 
-getExtraLightInfo :: (MonadLifx m) => [Device] -> m [(LightState, Device, Lifx.Product)]
+getExtraLightInfo :: (MonadLifx m, Traversable t) => t Device -> m (t (LightState, Device, Lifx.Product))
 getExtraLightInfo =
     traverse
         ( \dev ->
