@@ -377,7 +377,22 @@ update inc event = do
     -- TODO this is a bit of a hack - with `interactIO` we have no way to manually trigger updating
     -- in practice this works because we always get a mouse/key up event after the one which set `scanning`
     -- using an always-updating mode like `play` would be a significant performance hit
-    whenM (use #scanning) $ rescan' >> #scanning .= False
+    whenM (use #scanning) do
+        (fmap (fmap Z.fromNonEmpty . nonEmpty) . getExtraLightInfo =<< discoverDevices Nothing) >>= \case
+            Nothing -> #lastError ?= RescanFailed
+            Just ds -> do
+                #lastError .= Nothing
+                old <- (.deviceName) . Z.current <$> use #devices
+                dsz <-
+                    maybe
+                        (#lastError ?= RescanCurrentDeviceNotFound >> pure ds)
+                        pure
+                        (findRightZ ((== old) . (.label) . fst3) ds)
+                let LightState{hsbk, power} = fst3 $ Z.current dsz
+                #hsbk .= hsbk
+                #power .= (power /= 0)
+                #devices .= (uncurry3 makeDevice' <$> dsz)
+        #scanning .= False
     let dev'@Device'{lifxDevice = dev, cdLower, cdUpper, cdSupported} = Z.current devices
         transform = bimap (f . (/ w)) (f . (/ h))
           where
@@ -453,21 +468,6 @@ update inc event = do
         #hsbk .= hsbk
         #power .= (power /= 0)
     rescan = #scanning .= True
-    rescan' =
-        (fmap (fmap Z.fromNonEmpty . nonEmpty) . getExtraLightInfo =<< discoverDevices Nothing) >>= \case
-            Nothing -> #lastError ?= RescanFailed
-            Just ds -> do
-                #lastError .= Nothing
-                old <- (.deviceName) . Z.current <$> use #devices
-                dsz <-
-                    maybe
-                        (#lastError ?= RescanCurrentDeviceNotFound >> pure ds)
-                        pure
-                        (findRightZ ((== old) . (.label) . fst3) ds)
-                let LightState{hsbk, power} = fst3 $ Z.current dsz
-                #hsbk .= hsbk
-                #power .= (power /= 0)
-                #devices .= (uncurry3 makeDevice' <$> dsz)
     togglePower dev = do
         p <- not <$> use #power
         #power .= p
