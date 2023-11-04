@@ -263,10 +263,10 @@ main = do
             (coerce update (unDefValue opts.inc))
             ( either
                 ( \case
-                    RecvTimeout -> #lastError .= Just UnresponsiveDevice
+                    RecvTimeout -> #lastError ?= UnresponsiveDevice
                     e -> do
                         pPrint e
-                        #lastError .= Just (LifxError e)
+                        #lastError ?= LifxError e
                 )
                 pure
             )
@@ -375,7 +375,7 @@ update inc event = do
     case event of
         EventKey (MouseButton LeftButton) Down _ (transform -> (x, y)) ->
             if
-                | y > 5 / rows -> #lastError .= Just (OutOfRangeY y)
+                | y > 5 / rows -> #lastError ?= OutOfRangeY y
                 | y > 4 / rows -> setColour H
                 | y > 3 / rows -> setColour S
                 | y > 2 / rows -> setColour B
@@ -384,21 +384,21 @@ update inc event = do
                     -- TODO synchronise this with rendering
                     let bottomRowCols = 3
                      in if
-                            | x > 3 / bottomRowCols -> #lastError .= Just (OutOfRangeX x)
+                            | x > 3 / bottomRowCols -> #lastError ?= OutOfRangeX x
                             | x > 2 / bottomRowCols ->
                                 let n = floor $ (1 - y * rows) * fromIntegral (length devices)
                                  in -- TODO we should really use a data structure with constant-time indexing
                                     case applyN n Z.right (Z.start devices) of
                                         Just ds' -> setDevices ds'
-                                        Nothing -> #lastError .= Just (BadDeviceIndex n)
+                                        Nothing -> #lastError ?= BadDeviceIndex n
                             | x > 1 / bottomRowCols -> refreshState dev
                             | x > 0 / bottomRowCols -> togglePower dev
-                            | otherwise -> #lastError .= Just (OutOfRangeX x)
-                | otherwise -> #lastError .= Just (OutOfRangeY y)
+                            | otherwise -> #lastError ?= OutOfRangeX x
+                | otherwise -> #lastError ?= OutOfRangeY y
           where
             rows = genericLength (filter cdSupported enumerate) + 1
             setColour d = do
-                #dimension .= Just d
+                #dimension ?= d
                 setColourFromX dev' x
         EventKey (MouseButton LeftButton) Up _ (transform -> (x, _y)) -> do
             setColourFromX dev' x
@@ -408,7 +408,7 @@ update inc event = do
         EventKey (SpecialKey KeySpace) Down _ _ ->
             togglePower dev
         EventKey (Char (cdFromChar -> Just d)) Down _ _ ->
-            #dimension .= Just d
+            #dimension ?= d
         EventKey (cdKeyDown -> Just d) Down _ _ -> do
             #hsbk % cdLens d -= cdInc d
             updateColour dev
