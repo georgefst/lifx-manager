@@ -15,8 +15,9 @@ import Data.Colour.SRGB (toSRGB, toSRGB24)
 import Data.Foldable
 import Data.Function
 import Data.List.Extra
-import Data.List.NonEmpty (NonEmpty, nonEmpty)
+import Data.List.NonEmpty (nonEmpty)
 import Data.List.NonEmpty qualified as NE
+import Data.List.NonEmpty.Zipper qualified as Z
 import Data.Maybe
 import Data.Optics.Operators
 import Data.Text qualified as T
@@ -108,9 +109,7 @@ data AppState = AppState
     , power :: Bool
     , dimension :: Maybe ColourDimension
     -- ^ Which axis, if any, we are currently moving.
-    , currentDevice :: Int
-    , -- TODO we should really use a data structure with constant-time indexing
-      devices :: NonEmpty Device'
+    , devices :: Z.Zipper Device'
     -- ^ All devices. Head is the active device.
     , windowWidth :: Float
     , windowHeight :: Float
@@ -130,6 +129,7 @@ data Error
     | UnresponsiveDevice
     | OutOfRangeX Float
     | OutOfRangeY Float
+    | BadDeviceIndex Word8
     deriving (Show)
 
 -- TODO we'd ideally use gloss-juicy here, but that library is unfortunately unmaintained and slightly rubbish:
@@ -214,8 +214,8 @@ main = do
     let s0 =
             AppState
                 { dimension = Nothing
-                , currentDevice = 0
                 , devices =
+                    Z.fromNonEmpty $
                         devs
                             <&> \(lightState, lifxDevice, prod) ->
                                 let (kelvinLower, kelvinUpper) =
@@ -333,7 +333,7 @@ render font lineWidthProportion (fromIntegral -> columns) AppState{windowWidth =
                     & join
                         scale
                         (uncurry min (bimap (w' /) (rectHeight /) . both fromIntegral $ bitmapSize bmp))
-        dev = devices NE.!! currentDevice
+        dev = Z.current devices
         cdRows = map normalRow (filter dev.cdSupported enumerate) <> [bottomRow]
         rows = fromIntegral $ length cdRows
         ys = [rows / 2, rows / 2 - 1 .. -rows / 2]
@@ -352,9 +352,8 @@ update :: Word16 -> Event -> StateT AppState Lifx ()
 update inc event = do
     w <- use #windowWidth
     h <- use #windowHeight
-    devices <- toList <$> use #devices
-    currentDevice <- use #currentDevice
-    let dev'@Device'{lifxDevice = dev, cdLower, cdUpper, cdSupported} = devices !! currentDevice
+    devices <- use #devices
+    let dev'@Device'{lifxDevice = dev, cdLower, cdUpper, cdSupported} = Z.current devices
         transform = bimap (f . (/ w)) (f . (/ h))
           where
             f = clamp (0, 1) . (+ 0.5)
@@ -372,7 +371,12 @@ update inc event = do
                     let bottomRowCols = 3
                      in if
                             | x > 3 / bottomRowCols -> #lastError .= Just (OutOfRangeX x)
-                            | x > 2 / bottomRowCols -> setDevice (floor $ y * rows * genericLength devices)
+                            | x > 2 / bottomRowCols ->
+                                let n = floor $ y * rows * fromIntegral (length devices)
+                                 in -- TODO we should really use a data structure with constant-time indexing
+                                    case applyN n Z.right (Z.start devices) of
+                                        Just ds' -> setDevices ds'
+                                        Nothing -> #lastError .= Just (BadDeviceIndex n)
                             | x > 1 / bottomRowCols -> refreshState dev
                             | x > 0 / bottomRowCols -> togglePower dev
                             | otherwise -> #lastError .= Just (OutOfRangeX x)
@@ -402,7 +406,7 @@ update inc event = do
         EventMotion (transform -> (x, _y)) ->
             setColourFromX dev' x
         EventKey (Char 'l') Down _ _ ->
-            setDevice if succ currentDevice == length devices then 0 else succ currentDevice
+            setDevices $ fromMaybe (Z.start devices) $ Z.right devices
         EventKey (Char 'r') Down _ _ ->
             refreshState dev
         EventResize (w', h') -> do
@@ -410,13 +414,11 @@ update inc event = do
             #windowHeight .= fromIntegral h'
         _ -> pure ()
   where
-    setDevice n = do
-        ds <- use #devices
-        let Device'{..} = ds NE.!! n
+    setDevices ds@(Z.current -> Device'{..}) = do
         success <-
             (refreshState lifxDevice >> pure True)
                 `catchError` \e -> throwError e >> pure False
-        when success $ #currentDevice .= n
+        when success $ #devices .= ds
     updateColour dev = sendMessage dev . flip SetColor 0 =<< use #hsbk
     refreshState dev = do
         #lastError .= Nothing
@@ -479,3 +481,7 @@ instance Read IpV4 where
     readsPrec _ s = case map read $ splitOn "." s of
         [a, b, c, d] -> pure $ (,"") $ IpV4 $ tupleToHostAddress (a, b, c, d)
         _ -> []
+
+applyN :: (Integral n, Monad f) => n -> (b -> f b) -> b -> f b
+applyN 0 _ = pure
+applyN n g = g <=< applyN (n - 1) g
