@@ -43,7 +43,7 @@ import Network.Socket
 import OS.Window qualified as Window
 import Optics hiding (both)
 import Optics.State.Operators
-import Options.Generic hiding (Modifiers, Product, unwrap)
+import Options.Generic hiding (Product, unwrap)
 import SDL.Font qualified as Font
 import System.Exit
 import System.Process (readProcess)
@@ -438,11 +438,11 @@ update inc event = do
             togglePower dev
         EventKey (Char (cdFromChar -> Just d)) Down _ _ ->
             #dimension ?= d
-        EventKey (cdKeyDown -> Just d) Down Modifiers{shift} _ -> do
-            #hsbk % cdLens d -= applyWhen (shift == Down) (* 4) (cdInc d)
+        EventKey (cdKeyDown -> Just d) Down mods _ -> do
+            #hsbk % cdLens d -= applyWhen (mods.shift == Down) (* 4) (cdInc d)
             updateColour dev
-        EventKey (cdKeyUp -> Just d) Down Modifiers{shift} _ -> do
-            #hsbk % cdLens d += applyWhen (shift == Down) (* 4) (cdInc d)
+        EventKey (cdKeyUp -> Just d) Down mods _ -> do
+            #hsbk % cdLens d += applyWhen (mods.shift == Down) (* 4) (cdInc d)
             updateColour dev
         EventKey (SpecialKey KeyEsc) Down _ _ ->
             #dimension .= Nothing
