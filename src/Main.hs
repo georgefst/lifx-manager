@@ -448,8 +448,11 @@ update inc event = do
             #dimension .= Nothing
         EventMotion (transform -> (x, _y)) ->
             setColourFromX dev' x
+        -- TODO I really think this clever-ness from Gloss should be optional - I'd rather just use `mods.shift`
         EventKey (Char 'l') Down _ _ ->
             setDevices $ fromMaybe (Z.start devices) $ Z.right devices
+        EventKey (Char 'L') Down _ _ ->
+            setDevices $ fromMaybe (Z.end devices) $ Z.left devices
         EventKey (Char 'r') Down _ _ ->
             rescan
         EventKey (Char 'f') Down _ _ ->
