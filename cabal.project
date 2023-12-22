@@ -6,3 +6,15 @@ source-repository-package
     type: git
     location: https://github.com/georgefst/gloss-sdl2-surface
     tag: a4c6df7db57b1862944f65114e9e033b05ede688
+
+-- https://github.com/georgefst/lifx-lan/pull/27
+source-repository-package
+    type: git
+    location: https://github.com/georgefst/lifx-lan
+    tag: 4795c0d940f7ed5b9df66a8c97b72fd91f3b2f97
+allow-newer:
+    lifx-lan:ansi-terminal,
+    lifx-lan:base,
+    lifx-lan:network,
+    lifx-lan:template-haskell,
+    lifx-lan:text,
