@@ -94,17 +94,24 @@ cdFromChar = \case
     _ -> Nothing
 cdKeyDown :: Key -> Maybe ColourDimension
 cdKeyDown = \case
+    -- TODO we need these extra branches (ditto for `cdKeyUp`), since Gloss changes the character along with `shift`
+    -- `ctrl` for brackets also doesn't come through, which is odd but I assume its related
+    -- https://github.com/benl23x5/gloss/issues/55
     SpecialKey KeyLeft -> Just H
     Char '-' -> Just S
+    Char '_' -> Just S
     SpecialKey KeyDown -> Just B
     Char '[' -> Just K
+    Char '{' -> Just K
     _ -> Nothing
 cdKeyUp :: Key -> Maybe ColourDimension
 cdKeyUp = \case
     SpecialKey KeyRight -> Just H
     Char '=' -> Just S
+    Char '+' -> Just S
     SpecialKey KeyUp -> Just B
     Char ']' -> Just K
+    Char '}' -> Just K
     _ -> Nothing
 
 data AppState = AppState
@@ -452,7 +459,8 @@ update inc event = do
             #dimension .= Nothing
         EventMotion (transform -> (x, _y)) ->
             setColourFromX dev' x
-        -- TODO I really think this clever-ness from Gloss should be optional - I'd rather just use `mods.shift`
+        -- TODO I'd rather just use `mods.shift`
+        -- https://github.com/benl23x5/gloss/issues/55
         EventKey (Char 'l') Down _ _ ->
             setDevices $ fromMaybe (Z.start devices) $ Z.right devices
         EventKey (Char 'L') Down _ _ ->
