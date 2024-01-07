@@ -222,17 +222,12 @@ main = do
                             Lifx.Internal.ProductInfoMap.productLookup 1 1 0 0
                         )
             else
-                let discover =
-                        (<> map (deviceFromAddress . hostAddressToTuple . (.unwrap)) opts.ip)
-                            <$> discoverDevices (subtract (length opts.ip) <$> opts.devices)
-                 in maybe (liftIO $ putStrLn "timed out without finding any devices!" >> exitFailure) pure . nonEmpty
-                        =<< either (lifxFailure "LIFX failure during discovery") pure
-                        =<< runLifxT
-                            lifxTimeout
-                            (getExtraLightInfo =<< discover)
+                maybe (liftIO $ putStrLn "timed out without finding any devices!" >> exitFailure) pure . nonEmpty
+                    =<< either (lifxFailure "LIFX failure during discovery") pure
+                    =<< runLifxT
+                        lifxTimeout
+                        (discover (subtract (length opts.ip) <$> opts.devices) opts.ip)
     let LightState{hsbk, power} = fst3 $ NE.head devs
-    putStrLn "Found devices:"
-    pPrintIndented $ NE.toList devs
     window <- newEmptyMVar -- MVar wrapper is due to the fact we can't get this before initialising Gloss
     let s0 =
             AppState
@@ -379,10 +374,9 @@ update inc event = do
     -- in practice this works because we always get a mouse/key up event after the one which set `scanning`
     -- using an always-updating mode like `play` would be a significant performance hit
     whenM (use #scanning) do
-        discoverDevices Nothing <&> nonEmpty >>= \case
+        discover Nothing [] <&> nonEmpty >>= \case
             Nothing -> #lastError ?= RescanFailed
-            Just ds0 -> do
-                ds <- Z.fromNonEmpty <$> getExtraLightInfo ds0
+            Just (Z.fromNonEmpty -> ds) -> do
                 #lastError .= Nothing
                 old <- (.deviceName) . Z.current <$> use #devices
                 dsz <-
@@ -498,14 +492,14 @@ update inc event = do
                 l = fromIntegral $ dev.cdLower d
                 u = fromIntegral $ dev.cdUpper d
 
-getExtraLightInfo :: (MonadLifx m, Traversable t) => t Device -> m (t (LightState, Device, Lifx.Product))
-getExtraLightInfo =
-    traverse
-        ( \dev ->
-            (,dev,)
-                <$> sendMessage dev GetColor
-                <*> getProductInfo dev
-        )
+discover :: (MonadLifx m, MonadIO m) => Maybe Int -> [IpV4] -> m [(LightState, Device, Lifx.Product)]
+discover count known = do
+    ds0 <- discoverDevices count
+    ds <- for (ds0 <> map (deviceFromAddress . hostAddressToTuple . (.unwrap)) known) \dev ->
+        (,dev,) <$> sendMessage dev GetColor <*> getProductInfo dev
+    liftIO $ putStrLn "Found devices:"
+    pPrintIndented ds
+    pure ds
 
 {- Util -}
 
