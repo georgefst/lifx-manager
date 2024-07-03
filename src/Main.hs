@@ -406,13 +406,9 @@ update inc event = do
             -- TODO synchronise this with rendering
             let bottomRowCols = 3
                 bottomRowHeight = 1 / 4
+                row = rows - ceiling (fromIntegral rows * (y - bottomRowHeight) / (1 - bottomRowHeight))
              in if
-                    | y > bottomRowHeight + (4 / rows * (1 - bottomRowHeight)) -> #lastError ?= OutOfRangeY y
-                    | y > bottomRowHeight + (3 / rows * (1 - bottomRowHeight)) -> setColour H
-                    | y > bottomRowHeight + (2 / rows * (1 - bottomRowHeight)) -> setColour S
-                    | y > bottomRowHeight + (1 / rows * (1 - bottomRowHeight)) -> setColour B
-                    | y > bottomRowHeight + (0 / rows * (1 - bottomRowHeight)) -> setColour K
-                    | y >= 0 ->
+                    | row == rows ->
                         if
                             | x > 3 / bottomRowCols -> #lastError ?= OutOfRangeX x
                             | x > 2 / bottomRowCols ->
@@ -424,9 +420,10 @@ update inc event = do
                             | x > 1 / bottomRowCols -> rescan
                             | x > 0 / bottomRowCols -> togglePower dev
                             | otherwise -> #lastError ?= OutOfRangeX x
-                    | otherwise -> #lastError ?= OutOfRangeY y
+                    | otherwise -> maybe (#lastError ?= OutOfRangeY y) setColour $ dims !? row
           where
-            rows = genericLength (filter cdSupported enumerate)
+            dims = filter cdSupported enumerate
+            rows = length dims
             setColour d = do
                 #dimension ?= d
                 setColourFromX dev' x
