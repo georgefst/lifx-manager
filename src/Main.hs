@@ -290,8 +290,14 @@ main = do
 
 render :: Font.Font -> Float -> Int -> AppState -> IO Picture
 render font lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, windowHeight = h, ..} = do
-    deviceTexts <- fmap toList $ for devices \d -> fmap snd . bitmapOfSurface Cache =<< Font.blended
-        font 0 (d.deviceRoom <> ": " <> d.deviceName) -- TODO could do better, e.g. actually grouping buttons by room
+    deviceTexts <-
+        toList <$> for devices \d ->
+            fmap snd . bitmapOfSurface Cache
+                =<< Font.blended
+                    font
+                    0
+                    -- TODO could do better, e.g. actually grouping buttons by room
+                    (d.deviceRoom <> ": " <> d.deviceName)
     let normalRow d =
             let l = fromIntegral $ dev.cdLower d
                 u = fromIntegral $ dev.cdUpper d
