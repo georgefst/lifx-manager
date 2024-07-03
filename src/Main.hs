@@ -130,6 +130,7 @@ data AppState = AppState
 data Device' = Device' -- a device plus useful metadata
     { lifxDevice :: Device
     , deviceName :: Text
+    , deviceRoom :: Text
     , cdSupported :: ColourDimension -> Bool
     , cdLower :: ColourDimension -> Word16
     , cdUpper :: ColourDimension -> Word16
@@ -145,11 +146,12 @@ data Error
     | RescanCurrentDeviceNotFound
     deriving (Show)
 
-makeDevice' :: LightState -> Device -> Lifx.Product -> Device'
-makeDevice' lightState lifxDevice prod =
+makeDevice' :: LightState -> StateGroup -> Device -> Lifx.Product -> Device'
+makeDevice' lightState stateGroup lifxDevice prod =
     Device'
         { lifxDevice
         , deviceName = lightState.label
+        , deviceRoom = stateGroup.label
         , cdSupported = \case
             H -> prod.features.color
             S -> prod.features.color
@@ -224,6 +226,11 @@ main = do
                             , label = "Fake device"
                             , power = 1
                             }
+                        , StateGroup
+                            { updatedAt = 0
+                            , label = "Fake group"
+                            , group = "<group id>"
+                            }
                         , deviceFromAddress (0, 0, 0, 0)
                         , either (error . ("Fake device: " <>) . show) id $
                             Lifx.Internal.ProductInfoMap.productLookup 1 1 0 0
@@ -234,12 +241,12 @@ main = do
                     =<< runLifxT
                         lifxTimeout
                         (discover (subtract (length opts.ip) <$> opts.devices) opts.ip)
-    let LightState{hsbk, power} = fst3 $ NE.head devs
+    let LightState{hsbk, power} = fst4 $ NE.head devs
     window <- newEmptyMVar -- MVar wrapper is due to the fact we can't get this before initialising Gloss
     let s0 =
             AppState
                 { dimension = Nothing
-                , devices = Z.fromNonEmpty $ uncurry3 makeDevice' <$> devs
+                , devices = Z.fromNonEmpty $ uncurry4 makeDevice' <$> devs
                 , lastError = Nothing
                 , power = power /= 0
                 , scanning = False
@@ -283,7 +290,8 @@ main = do
 
 render :: Font.Font -> Float -> Int -> AppState -> IO Picture
 render font lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, windowHeight = h, ..} = do
-    deviceTexts <- fmap toList $ for devices $ fmap snd . bitmapOfSurface Cache <=< Font.blended font 0 . (.deviceName)
+    deviceTexts <- fmap toList $ for devices \d -> fmap snd . bitmapOfSurface Cache =<< Font.blended
+        font 0 (d.deviceRoom <> ": " <> d.deviceName) -- TODO could do better, e.g. actually grouping buttons by room
     let normalRow d =
             let l = fromIntegral $ dev.cdLower d
                 u = fromIntegral $ dev.cdUpper d
@@ -390,11 +398,11 @@ update inc event = do
                     maybe
                         (#lastError ?= RescanCurrentDeviceNotFound >> pure ds)
                         pure
-                        (findRightZ ((== old) . (.label) . fst3) ds)
-                let LightState{hsbk, power} = fst3 $ Z.current dsz
+                        (findRightZ ((== old) . (.label) . fst4) ds)
+                let LightState{hsbk, power} = fst4 $ Z.current dsz
                 #hsbk .= hsbk
                 #power .= (power /= 0)
-                #devices .= (uncurry3 makeDevice' <$> dsz)
+                #devices .= (uncurry4 makeDevice' <$> dsz)
         #scanning .= False
     let dev'@Device'{lifxDevice = dev, cdLower, cdUpper, cdSupported} = Z.current devices
         transform = bimap (f . (/ w)) (f . (/ h))
@@ -497,11 +505,11 @@ update inc event = do
                 l = fromIntegral $ dev.cdLower d
                 u = fromIntegral $ dev.cdUpper d
 
-discover :: (MonadLifx m, MonadIO m) => Maybe Int -> [IpV4] -> m [(LightState, Device, Lifx.Product)]
+discover :: (MonadLifx m, MonadIO m) => Maybe Int -> [IpV4] -> m [(LightState, StateGroup, Device, Lifx.Product)]
 discover count known = do
     ds0 <- discoverDevices count
     ds <- for (ds0 <> map (deviceFromAddress . hostAddressToTuple . (.unwrap)) known) \dev ->
-        (,dev,) <$> sendMessage dev GetColor <*> getProductInfo dev
+        (,,dev,) <$> sendMessage dev GetColor <*> sendMessage dev GetGroup <*> getProductInfo dev
     liftIO $ putStrLn "Found devices:"
     pPrintIndented ds
     pure ds
@@ -563,3 +571,9 @@ findRightZ :: (a -> Bool) -> Z.Zipper a -> Maybe (Z.Zipper a)
 findRightZ target z
     | target (Z.current z) = Just z
     | otherwise = findRightZ target =<< Z.right z
+
+fst4 :: (a, b, c, d) -> a
+fst4 (x, _, _, _) = x
+
+uncurry4 :: (a -> b -> c -> d -> e) -> (a, b, c, d) -> e
+uncurry4 f (a, b, c, d) = f a b c d
