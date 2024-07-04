@@ -420,11 +420,8 @@ update inc event = do
             -- TODO synchronise this with rendering
             let bottomRowCols = 3
                 bottomRowHeight = 1 / 4
-             in if y > bottomRowHeight
+             in if y >= 0 && y < bottomRowHeight
                     then
-                        let row = rows - ceiling (fromIntegral rows * (y - bottomRowHeight) / (1 - bottomRowHeight))
-                         in maybe (#lastError ?= OutOfRangeY y) setColour $ dims !? row
-                    else
                         if
                             | x > 3 / bottomRowCols -> #lastError ?= OutOfRangeX x
                             | x > 2 / bottomRowCols ->
@@ -436,6 +433,9 @@ update inc event = do
                             | x > 1 / bottomRowCols -> rescan
                             | x > 0 / bottomRowCols -> togglePower dev
                             | otherwise -> #lastError ?= OutOfRangeX x
+                    else
+                        let row = rows - ceiling (fromIntegral rows * (y - bottomRowHeight) / (1 - bottomRowHeight))
+                         in maybe (#lastError ?= OutOfRangeY y) setColour $ dims !? row
           where
             dims = filter cdSupported enumerate
             rows = length dims
