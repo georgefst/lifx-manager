@@ -420,9 +420,10 @@ update inc event = do
             -- TODO synchronise this with rendering
             let bottomRowCols = 3
                 bottomRowHeight = 1 / 4
-                row = rows - ceiling (fromIntegral rows * (y - bottomRowHeight) / (1 - bottomRowHeight))
-             in if row /= rows
-                    then maybe (#lastError ?= OutOfRangeY y) setColour $ dims !? row
+             in if y > bottomRowHeight
+                    then
+                        let row = rows - ceiling (fromIntegral rows * (y - bottomRowHeight) / (1 - bottomRowHeight))
+                         in maybe (#lastError ?= OutOfRangeY y) setColour $ dims !? row
                     else
                         if
                             | x > 3 / bottomRowCols -> #lastError ?= OutOfRangeX x
