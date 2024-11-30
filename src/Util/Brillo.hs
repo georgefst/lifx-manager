@@ -9,8 +9,10 @@ somehow avoid awkward `Either () err` (~ `err`) error type for `EitherT err IO`?
 -}
 
 -- | Wrapper around 'interactIO', making it easier to use a state+error-like monad.
-module Util.Gloss (interactM) where
+module Util.Brillo (interactM) where
 
+import Brillo
+import Brillo.Interface.IO.Interact
 import Control.Monad
 import Control.Monad.Except
 import Control.Monad.Reader
@@ -18,20 +20,18 @@ import Control.Monad.State
 import Control.Monad.Trans.Maybe
 import Data.Bifunctor
 import Data.Void
-import Graphics.Gloss
-import Graphics.Gloss.Interface.IO.Interact
 
-class (MonadIO m) => MonadGloss m where
+class (MonadIO m) => MonadBrillo m where
     type World m
     type Error m
     runUpdate :: (Error m -> m a) -> m a -> World m -> IO (World m, a)
     initWorld :: m (World m)
-instance MonadGloss IO where
+instance MonadBrillo IO where
     type World IO = ()
     type Error IO = ()
     runUpdate _h x () = ((),) <$> x
     initWorld = pure ()
-instance (MonadGloss m) => MonadGloss (MaybeT m) where
+instance (MonadBrillo m) => MonadBrillo (MaybeT m) where
     type World (MaybeT m) = World m
     type Error (MaybeT m) = Maybe (Error m)
     runUpdate h x = runUpdate (h' . Just) (runMaybeT x >>= h'')
@@ -39,7 +39,7 @@ instance (MonadGloss m) => MonadGloss (MaybeT m) where
         h' = h'' <=< runMaybeT . h
         h'' = maybe (h' Nothing) pure
     initWorld = lift initWorld
-instance (MonadGloss m) => MonadGloss (ExceptT err m) where
+instance (MonadBrillo m) => MonadBrillo (ExceptT err m) where
     type World (ExceptT err m) = World m
     type Error (ExceptT err m) = Either err (Error m)
     runUpdate h x = runUpdate (h' . Right) (runExceptT x >>= h'')
@@ -47,14 +47,14 @@ instance (MonadGloss m) => MonadGloss (ExceptT err m) where
         h' = h'' <=< runExceptT . h
         h'' = either (h' . Left) pure
     initWorld = lift initWorld
-instance (MonadGloss m) => MonadGloss (ReaderT r m) where
+instance (MonadBrillo m) => MonadBrillo (ReaderT r m) where
     type World (ReaderT r m) = (World m, r)
     type Error (ReaderT r m) = Error m
     runUpdate h x (s, r) = first (,r) <$> runUpdate (run . h) (run x) s
       where
         run = flip runReaderT r
     initWorld = (,) <$> lift initWorld <*> ask
-instance (MonadGloss m) => MonadGloss (StateT s m) where
+instance (MonadBrillo m) => MonadBrillo (StateT s m) where
     type World (StateT s m) = (World m, s)
     type Error (StateT s m) = Error m
     runUpdate h x (s, s') = reTuple <$> runUpdate (run . h) (run x) s
@@ -64,7 +64,7 @@ instance (MonadGloss m) => MonadGloss (StateT s m) where
     initWorld = (,) <$> lift initWorld <*> get
 
 interactM ::
-    (MonadGloss m) =>
+    (MonadBrillo m) =>
     (m (World m) -> IO (World m)) ->
     Display ->
     Color ->
@@ -76,7 +76,7 @@ interactM ::
     IO Void
 interactM run dis col draw upd he eat = do
     s0 <- run initWorld
-    (error "can't happen - interactIO never terminates" :: () -> Void) -- TODO Gloss should return Void
+    (error "can't happen - interactIO never terminates" :: () -> Void) -- TODO Brillo should return Void
         <$> interactIO
             dis
             col

@@ -1,5 +1,8 @@
 module Main (main) where
 
+import Brillo
+import Brillo.Interface.Environment
+import Brillo.Interface.IO.Interact
 import Codec.BMP hiding (Error)
 import Codec.Picture
 import Control.Concurrent
@@ -30,9 +33,6 @@ import Data.Void
 import Data.Word
 import Embed
 import Foreign (Storable)
-import Graphics.Gloss
-import Graphics.Gloss.Interface.Environment
-import Graphics.Gloss.Interface.IO.Interact
 import Graphics.Gloss.SDL.Surface
 import Lifx.Internal.Colour (hsbkToRgb)
 import Lifx.Internal.ProductInfoMap qualified
@@ -48,7 +48,7 @@ import SDL.Font qualified as Font
 import System.Exit
 import System.Process (readProcess)
 import Text.Pretty.Simple hiding (Color)
-import Util.Gloss
+import Util.Brillo
 
 data Opts = Opts
     { width :: Float <!> "0.5"
@@ -94,7 +94,7 @@ cdFromChar = \case
     _ -> Nothing
 cdKeyDown :: Key -> Maybe ColourDimension
 cdKeyDown = \case
-    -- TODO we need these extra branches (ditto for `cdKeyUp`), since Gloss changes the character along with `shift`
+    -- TODO we need these extra branches (ditto for `cdKeyUp`), since Brillo changes the character along with `shift`
     -- `ctrl` for brackets also doesn't come through, which is odd but I assume its related
     -- https://github.com/benl23x5/gloss/issues/55
     SpecialKey KeyLeft -> Just H
@@ -172,6 +172,7 @@ makeDevice' lightState stateGroup lifxDevice prod =
 
 -- TODO we'd ideally use gloss-juicy here, but that library is unfortunately unmaintained and slightly rubbish:
 -- https://github.com/alpmestan/gloss-juicy/issues/12
+-- possibly some hope with the new `brillo-juicy`, but nothing has been added yet
 
 -- | Load a bitmap. Assume the input is monochrome, and output a colour based solely on the alpha value.
 loadBsBmp :: RGB Word8 -> ByteString -> BitmapData
@@ -242,7 +243,7 @@ main = do
                         lifxTimeout
                         (discover (subtract (length opts.ip) <$> opts.devices) opts.ip)
     let LightState{hsbk, power} = fst4 $ NE.head devs
-    window <- newEmptyMVar -- MVar wrapper is due to the fact we can't get this before initialising Gloss
+    window <- newEmptyMVar -- MVar wrapper is due to the fact we can't get this before initialising Brillo
     let s0 =
             AppState
                 { dimension = Nothing
@@ -307,7 +308,7 @@ render font lineWidthProportion (fromIntegral -> columns) AppState{windowWidth =
                         [0 .. columns - 1] <&> \x ->
                             let x' = (x + 0.5) / columns -- x coordinate of the bar's centre, in the interval [0,1]
                              in rectangleSolid columnWidth rectHeight
-                                    & color (rgbToGloss . hsbkToRgb $ hsbk & cdLens d .~ round (x' * (u - l) + l))
+                                    & color (rgbToBrillo . hsbkToRgb $ hsbk & cdLens d .~ round (x' * (u - l) + l))
                                     & translate (w * (x' - 0.5)) 0
                     , -- current value marker
                       translate (w * (fromIntegral (view (cdLens d) hsbk) - l) / (u - l)) 0
@@ -317,7 +318,7 @@ render font lineWidthProportion (fromIntegral -> columns) AppState{windowWidth =
                                 pictures
                                     [ rectangleSolid (lineWidth * 3) rectHeight
                                     , rectangleSolid lineWidth (rectHeight - lineWidth * 3)
-                                        & color (rgbToGloss $ hsbkToRgb hsbk)
+                                        & color (rgbToBrillo $ hsbkToRgb hsbk)
                                     ]
                             else rectangleSolid lineWidth rectHeight
                     ]
@@ -327,7 +328,7 @@ render font lineWidthProportion (fromIntegral -> columns) AppState{windowWidth =
                 $ zipWith
                     ( \n ->
                         translate ((n / 2 + 0.5) * w' - w / 2) 0
-                            . fromMaybe (rectangleSolid lineWidth bottomRowHeight & color (rgbToGloss $ toSRGB Colour.black))
+                            . fromMaybe (rectangleSolid lineWidth bottomRowHeight & color (rgbToBrillo $ toSRGB Colour.black))
                     )
                     [0 ..]
                 $ intersperse Nothing
@@ -338,13 +339,13 @@ render font lineWidthProportion (fromIntegral -> columns) AppState{windowWidth =
                     then drawBitmap bmpPower
                     else
                         pictures
-                            [ rectangleSolid w' bottomRowHeight & color (rgbToGloss $ toSRGB Colour.black)
+                            [ rectangleSolid w' bottomRowHeight & color (rgbToBrillo $ toSRGB Colour.black)
                             , drawBitmap bmpPowerWhite
                             ]
                 , if scanning
                     then
                         pictures
-                            [ rectangleSolid w' bottomRowHeight & color (rgbToGloss $ toSRGB Colour.black)
+                            [ rectangleSolid w' bottomRowHeight & color (rgbToBrillo $ toSRGB Colour.black)
                             , drawBitmap bmpRefreshWhite
                             ]
                     else drawBitmap bmpRefresh
@@ -526,8 +527,8 @@ discover count known = do
 clamp :: (Ord a) => (a, a) -> a -> a
 clamp (l, u) = max l . min u
 
-rgbToGloss :: RGB Float -> Color
-rgbToGloss RGB{..} =
+rgbToBrillo :: RGB Float -> Color
+rgbToBrillo RGB{..} =
     makeColor
         channelRed
         channelGreen

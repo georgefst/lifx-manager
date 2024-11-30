@@ -11,7 +11,7 @@ executable lifx-manager
     other-modules:
         Embed
         Embed.Util
-        Util.Gloss
+        Util.Brillo
     hs-source-dirs: src
     ghc-options:
         -Wall
@@ -20,6 +20,7 @@ executable lifx-manager
         base,
         binary,
         bmp,
+        brillo,
         bytestring,
         colour,
         composition,
@@ -28,7 +29,6 @@ executable lifx-manager
         file-embed,
         filepath,
         gloss-sdl2-surface,
-        gloss,
         JuicyPixels,
         lifx-lan,
         monad-loops,
