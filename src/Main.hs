@@ -19,7 +19,7 @@ import Data.Colour.SRGB (toSRGB, toSRGB24)
 import Data.Foldable
 import Data.Function
 import Data.List.Extra
-import Data.List.NonEmpty (nonEmpty)
+import Data.List.NonEmpty (NonEmpty ((:|)), nonEmpty)
 import Data.List.NonEmpty qualified as NE
 import Data.List.NonEmpty.Zipper qualified as Z
 import Data.Maybe
@@ -223,22 +223,37 @@ main = do
     devs <-
         if opts.fake
             then
-                pure $
-                    pure
-                        ( LightState
+                pure
+                    let fakeGroup =
+                            StateGroup
+                                { updatedAt = 0
+                                , label = "Fake group"
+                                , group = "<group id>"
+                                }
+                        fakeAddress = deviceFromAddress (0, 0, 0, 0)
+                        fakeProduct =
+                            either (error . ("Fake device: " <>) . show) id $
+                                Lifx.Internal.ProductInfoMap.productLookup 1 1 0 0
+                     in ( LightState
                             { hsbk = HSBK 50000 25000 12500 6250
-                            , label = "Fake device"
+                            , label = "Fake device 1"
                             , power = 1
                             }
-                        , StateGroup
-                            { updatedAt = 0
-                            , label = "Fake group"
-                            , group = "<group id>"
-                            }
-                        , deviceFromAddress (0, 0, 0, 0)
-                        , either (error . ("Fake device: " <>) . show) id $
-                            Lifx.Internal.ProductInfoMap.productLookup 1 1 0 0
+                        , fakeGroup
+                        , fakeAddress
+                        , fakeProduct
                         )
+                            :| [
+                                   ( LightState
+                                        { hsbk = HSBK 0 0 50000 2000
+                                        , label = "Fake device 2"
+                                        , power = 0
+                                        }
+                                   , fakeGroup
+                                   , fakeAddress
+                                   , fakeProduct
+                                   )
+                               ]
             else
                 maybe (liftIO $ putStrLn "timed out without finding any devices!" >> exitFailure) pure . nonEmpty
                     =<< either (lifxFailure "LIFX failure during discovery") pure
