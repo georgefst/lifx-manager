@@ -33,7 +33,6 @@ import Data.Void
 import Data.Word
 import Embed
 import Foreign (Storable)
-import Graphics.Gloss.SDL.Surface
 import Lifx.Internal.Colour (hsbkToRgb)
 import Lifx.Internal.ProductInfoMap qualified
 import Lifx.Lan
@@ -45,9 +44,7 @@ import Optics hiding (both)
 import Optics.State.Operators
 import Options.Generic hiding (Modifiers, Product, unwrap)
 import Orphans ()
-import SDL.Font qualified as Font
 import System.Exit
-import System.Process (readProcess)
 import Text.Pretty.Simple hiding (Color)
 import Util.Brillo
 
@@ -218,8 +215,6 @@ main = do
     let windowWidth = screenWidth * unDefValue opts.width
         windowHeight = screenHeight * unDefValue opts.height
         lifxTimeout = unDefValue opts.timeout * 1_000_000
-    fontFile <- readProcess "fc-match" ["-f%{file}"] []
-    font <- Font.initialize >> Font.load fontFile 32
     devs <-
         if opts.fake
             then
@@ -289,7 +284,7 @@ main = do
                 )
             )
             white
-            (render font (unDefValue opts.lineWidthProportion) (unDefValue opts.columns) . snd)
+            (render (unDefValue opts.lineWidthProportion) (unDefValue opts.columns) . snd)
             (coerce update (unDefValue opts.inc))
             ( either
                 ( \case
@@ -308,17 +303,11 @@ main = do
   where
     lifxFailure t err = putStrLn (t <> ": " <> show err) >> exitFailure
 
-render :: Font.Font -> Float -> Int -> AppState -> IO Picture
-render font lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, windowHeight = h, ..} = do
-    deviceTexts <-
-        toList <$> for devices \d ->
-            fmap snd . bitmapOfSurface Cache
-                =<< Font.blended
-                    font
-                    0
-                    -- TODO could do better, e.g. actually grouping buttons by room
-                    (d.deviceRoom <> ": " <> d.deviceName)
-    let normalRow d =
+render :: Float -> Int -> AppState -> IO Picture
+render lineWidthProportion (fromIntegral -> columns) AppState{windowWidth = w, windowHeight = h, ..} = do
+    -- TODO could do better, e.g. actually grouping buttons by room
+    let deviceTexts = toList devices <&> \d -> BitmapText . T.unpack $ d.deviceRoom <> ": " <> d.deviceName
+        normalRow d =
             let l = fromIntegral $ dev.cdLower d
                 u = fromIntegral $ dev.cdUpper d
              in pictures
@@ -378,7 +367,22 @@ render font lineWidthProportion (fromIntegral -> columns) AppState{windowWidth =
                                         [ rectangleSolid w' h' & color black
                                         , rectangleSolid (w' - lineWidth * 2) (h' - lineWidth * 2) & color white
                                         ]
-                                        <> [p]
+                                        <> [ let
+                                                verticalPadding = 0.38 -- arbitrary, aesthetic judgement
+                                                fontHeight = 64 -- correct for current hardcoded font
+                                                scaling = h' / fontHeight * (1 - 2 * verticalPadding)
+                                                y = -fontHeight * scaling / 2
+                                                -- TODO we need some way to measure text length, or at least center it
+                                                -- here we align left, with some padding, rather than guessing at width
+                                                padding = 50 * scaling
+                                                x = -w' / 2 + padding
+                                              in
+                                                translate x y $
+                                                    scale
+                                                        scaling
+                                                        scaling
+                                                        p
+                                           ]
                         )
                         [0 ..]
                         deviceTexts
