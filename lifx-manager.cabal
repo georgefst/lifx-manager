@@ -11,6 +11,7 @@ executable lifx-manager
     other-modules:
         Embed
         Embed.Util
+        Orphans
         Util.Brillo
     hs-source-dirs: src
     ghc-options:
@@ -28,7 +29,6 @@ executable lifx-manager
         extra,
         file-embed,
         filepath,
-        gloss-sdl2-surface,
         JuicyPixels,
         lifx-lan,
         monad-loops,
@@ -43,8 +43,6 @@ executable lifx-manager
         process,
         random,
         safe,
-        sdl2-ttf,
-        sdl2,
         template-haskell,
         text,
         time,
