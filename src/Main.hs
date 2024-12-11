@@ -44,6 +44,7 @@ import OS.Window qualified as Window
 import Optics hiding (both)
 import Optics.State.Operators
 import Options.Generic hiding (Modifiers, Product, unwrap)
+import Orphans ()
 import SDL.Font qualified as Font
 import System.Exit
 import System.Process (readProcess)
@@ -68,6 +69,8 @@ data Opts = Opts
     -- ^ hardcode some devices, instead of waiting for discovery
     , fake :: Bool
     -- ^ don't scan for devices at all - useful for testing/previewing with no network or bulbs
+    , initialPort :: Maybe PortNumber
+    , port :: Maybe PortNumber
     }
     deriving (Generic, Show)
 instance ParseRecord Opts where
@@ -256,6 +259,7 @@ main = do
                     =<< either (lifxFailure "LIFX failure during discovery") pure
                     =<< runLifxT
                         lifxTimeout
+                        opts.initialPort
                         (discover (subtract (length opts.ip) <$> opts.devices) opts.ip)
     let LightState{hsbk, power} = fst4 $ NE.head devs
     window <- newEmptyMVar -- MVar wrapper is due to the fact we can't get this before initialising Brillo
@@ -271,7 +275,7 @@ main = do
     absurd
         <$> interactM
             ( either (lifxFailure "LIFX initialisation failed") pure
-                <=< runLifxT lifxTimeout
+                <=< runLifxT lifxTimeout opts.port
                     . LifxT
                     . flip evalStateT s0
             )
