@@ -317,33 +317,33 @@ render font lineWidthProportion (fromIntegral -> columns) AppState{windowWidth =
     let normalRow d =
             let l = fromIntegral $ dev.cdLower d
                 u = fromIntegral $ dev.cdUpper d
-             in pictures
+             in Pictures
                     [ -- background
-                      pictures $
+                      Pictures $
                         [0 .. columns - 1] <&> \x ->
                             let x' = (x + 0.5) / columns -- x coordinate of the bar's centre, in the interval [0,1]
                              in rectangleSolid columnWidth rectHeight
-                                    & color (rgbToBrillo . hsbkToRgb $ hsbk & cdLens d .~ round (x' * (u - l) + l))
-                                    & translate (w * (x' - 0.5)) 0
+                                    & Color (rgbToBrillo . hsbkToRgb $ hsbk & cdLens d .~ round (x' * (u - l) + l))
+                                    & Translate (w * (x' - 0.5)) 0
                     , -- current value marker
-                      translate (w * (fromIntegral (view (cdLens d) hsbk) - l) / (u - l)) 0
-                        . translate (-w / 2) 0
+                      Translate (w * (fromIntegral (view (cdLens d) hsbk) - l) / (u - l)) 0
+                        . Translate (-w / 2) 0
                         $ if dimension == Just d
                             then
-                                pictures
+                                Pictures
                                     [ rectangleSolid (lineWidth * 3) rectHeight
                                     , rectangleSolid lineWidth (rectHeight - lineWidth * 3)
-                                        & color (rgbToBrillo $ hsbkToRgb hsbk)
+                                        & Color (rgbToBrillo $ hsbkToRgb hsbk)
                                     ]
                             else rectangleSolid lineWidth rectHeight
                     ]
         bottomRowHeight = h / 4
         bottomRow =
-            pictures
+            Pictures
                 $ zipWith
                     ( \n ->
-                        translate ((n / 2 + 0.5) * w' - w / 2) 0
-                            . fromMaybe (rectangleSolid lineWidth bottomRowHeight & color (rgbToBrillo $ toSRGB Colour.black))
+                        Translate ((n / 2 + 0.5) * w' - w / 2) 0
+                            . fromMaybe (rectangleSolid lineWidth bottomRowHeight & Color (rgbToBrillo $ toSRGB Colour.black))
                     )
                     [0 ..]
                 $ intersperse Nothing
@@ -353,26 +353,26 @@ render font lineWidthProportion (fromIntegral -> columns) AppState{windowWidth =
                 [ if power
                     then drawBitmap bmpPower
                     else
-                        pictures
-                            [ rectangleSolid w' bottomRowHeight & color (rgbToBrillo $ toSRGB Colour.black)
+                        Pictures
+                            [ rectangleSolid w' bottomRowHeight & Color (rgbToBrillo $ toSRGB Colour.black)
                             , drawBitmap bmpPowerWhite
                             ]
                 , if scanning
                     then
-                        pictures
-                            [ rectangleSolid w' bottomRowHeight & color (rgbToBrillo $ toSRGB Colour.black)
+                        Pictures
+                            [ rectangleSolid w' bottomRowHeight & Color (rgbToBrillo $ toSRGB Colour.black)
                             , drawBitmap bmpRefreshWhite
                             ]
                     else drawBitmap bmpRefresh
-                , pictures $
+                , Pictures $
                     zipWith
                         ( \n p ->
-                            translate 0 (bottomRowHeight / 2 - (n + 0.5) * h') $
-                                pictures $
+                            Translate 0 (bottomRowHeight / 2 - (n + 0.5) * h') $
+                                Pictures $
                                     mwhen
                                         (n == genericLength (Z.lefts devices))
-                                        [ rectangleSolid w' h' & color black
-                                        , rectangleSolid (w' - lineWidth * 2) (h' - lineWidth * 2) & color white
+                                        [ rectangleSolid w' h' & Color black
+                                        , rectangleSolid (w' - lineWidth * 2) (h' - lineWidth * 2) & Color white
                                         ]
                                         <> [p]
                         )
@@ -383,9 +383,9 @@ render font lineWidthProportion (fromIntegral -> columns) AppState{windowWidth =
                 h' = bottomRowHeight / genericLength deviceTexts
             w' = w / genericLength contents
             drawBitmap bmp =
-                bitmap bmp
+                Bitmap bmp
                     & join
-                        scale
+                        Scale
                         (uncurry min (bimap (w' /) (bottomRowHeight /) . both fromIntegral $ bitmapSize bmp))
         dev = Z.current devices
         cdRows = map normalRow (filter dev.cdSupported enumerate)
@@ -394,13 +394,13 @@ render font lineWidthProportion (fromIntegral -> columns) AppState{windowWidth =
         lineWidth = min w h / lineWidthProportion
         rectHeight = (h - bottomRowHeight) / rows
         columnWidth = w / columns
-    pure . pictures $
+    pure . Pictures $
         zipWith
-            (translate 0 . (+ bottomRowHeight / 2) . (rectHeight *))
+            (Translate 0 . (+ bottomRowHeight / 2) . (rectHeight *))
             (ys <> [rows * (h / (2 * (bottomRowHeight - h)))])
             (cdRows <> [bottomRow])
-            <> map (\y -> translate 0 ((y - 1 / 2) * rectHeight + bottomRowHeight / 2) $ rectangleSolid w lineWidth) ys
-            <> maybe [] (pure . color red . scale 0.2 0.2 . text . show) lastError
+            <> map (\y -> Translate 0 ((y - 1 / 2) * rectHeight + bottomRowHeight / 2) $ rectangleSolid w lineWidth) ys
+            <> maybe [] (pure . Color red . Scale 0.2 0.2 . Text . show) lastError
 
 update :: Word16 -> Event -> StateT AppState Lifx ()
 update inc event = do
