@@ -20,7 +20,7 @@ executable lifx-manager
         base,
         binary,
         bmp,
-        brillo,
+        brillo >= 2,
         bytestring,
         colour,
         composition,

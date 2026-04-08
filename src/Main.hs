@@ -276,7 +276,7 @@ main = do
                     . flip evalStateT s0
             )
             ( InWindow
-                (T.unpack windowName)
+                windowName
                 ( round windowWidth
                 , round windowHeight
                 )
@@ -400,7 +400,7 @@ render font lineWidthProportion (fromIntegral -> columns) AppState{windowWidth =
             (ys <> [rows * (h / (2 * (bottomRowHeight - h)))])
             (cdRows <> [bottomRow])
             <> map (\y -> Translate 0 ((y - 1 / 2) * rectHeight + bottomRowHeight / 2) $ rectangleSolid w lineWidth) ys
-            <> maybe [] (pure . Color red . Scale 0.2 0.2 . Text . show) lastError
+            <> maybe [] (pure . Color red . Scale 0.2 0.2 . Text . T.show) lastError
 
 update :: Word16 -> Event -> StateT AppState Lifx ()
 update inc event = do
